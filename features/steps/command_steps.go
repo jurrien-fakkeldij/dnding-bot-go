@@ -1,6 +1,7 @@
 package steps
 
 import (
+	"context"
 	"fmt"
 	"jurrien/dnding-bot/commands"
 
@@ -19,14 +20,70 @@ func (s *MockSession) InteractionRespond(interaction *discordgo.Interaction, res
 
 type CommandSteps struct {
 	Session     *discordgo.Session
+	Interaction *discordgo.Interaction
 	MockSession *MockSession
+}
+
+func (s *CommandSteps) InitializeScenario(scenario *godog.ScenarioContext) error {
+	scenario.Before(func(ctx context.Context, sc *godog.Scenario) (context.Context, error) {
+		s.Interaction = nil
+		return ctx, nil
+	})
+	scenario.Step(`^the user has a username "([^"]*)" on the server$`, s.theUserHasAUsernameOnTheServer)
+	scenario.Step(`^the user sends a "([^"]*)" command with "([^"]*)" name as a parameter$`, s.anyUserSendsACommandWithNameParameter)
+	scenario.Step(`^the user sends a "([^"]*)" command without a name as a parameter$`, s.theUserSendsACommandWithoutANameAsAParameter)
+	scenario.Step(`^the response "([^"]*)" is given$`, s.theResponseShouldBe)
+	scenario.Step(`^the response is ephimeral$`, s.theResponseShouldBeEphimeral)
+	return nil
 }
 
 func (s *CommandSteps) InitializeSuite(suite *godog.TestSuiteContext) error {
 	return nil
 }
 
+func (s *CommandSteps) theUserHasAUsernameOnTheServer(username string) error {
+	if s.Interaction == nil {
+		s.Interaction = &discordgo.Interaction{}
+	}
+
+	s.Interaction.Member = &discordgo.Member{
+		User: &discordgo.User{
+			Username: username,
+		},
+	}
+
+	return nil
+}
+
+func (s *CommandSteps) theUserSendsACommandWithoutANameAsAParameter(commandName string) error {
+	mockSession := &MockSession{}
+	s.MockSession = mockSession
+
+	if s.Interaction == nil {
+		s.Interaction = &discordgo.Interaction{}
+	}
+	s.Interaction.ID = ""
+	s.Interaction.Type = discordgo.InteractionApplicationCommand
+	s.Interaction.Data = discordgo.ApplicationCommandInteractionData{}
+	return s.sendCommand(commandName)
+}
+
 func (s *CommandSteps) anyUserSendsACommandWithNameParameter(commandName, name string) error {
+	if s.Interaction == nil {
+		s.Interaction = &discordgo.Interaction{}
+	}
+	s.Interaction.ID = ""
+	s.Interaction.Type = discordgo.InteractionApplicationCommand
+	s.Interaction.Data = discordgo.ApplicationCommandInteractionData{
+		Name: "test",
+		Options: []*discordgo.ApplicationCommandInteractionDataOption{
+			{Name: "player_name", Value: name, Type: discordgo.ApplicationCommandOptionString},
+		},
+	}
+	return s.sendCommand(commandName)
+}
+
+func (s *CommandSteps) sendCommand(commandName string) error {
 	mockSession := &MockSession{}
 	s.MockSession = mockSession
 
@@ -41,27 +98,15 @@ func (s *CommandSteps) anyUserSendsACommandWithNameParameter(commandName, name s
 	}
 
 	return commands.PlayerCommandHandlers[command.Name](mockSession, &discordgo.InteractionCreate{
-		Interaction: &discordgo.Interaction{
-			ID:   "",
-			Type: discordgo.InteractionApplicationCommand,
-			Data: discordgo.ApplicationCommandInteractionData{
-				Name: "test",
-				Options: []*discordgo.ApplicationCommandInteractionDataOption{
-					{Name: "player_name", Value: name, Type: discordgo.ApplicationCommandOptionString},
-				},
-			},
-		},
+		Interaction: s.Interaction,
 	})
 }
 
-func (s *CommandSteps) aResponseShouldBeGiven() error {
-	if s.MockSession.Response == nil {
+func (s *CommandSteps) theResponseShouldBe(response string) error {
+	if s.MockSession.Response == nil || s.MockSession.Response.Data == nil {
 		return fmt.Errorf("No response given")
 	}
-	return nil
-}
 
-func (s *CommandSteps) theResponseShouldBe(response string) error {
 	if s.MockSession.Response.Data.Content != response {
 		return fmt.Errorf("Response is not %s but %s", response, s.MockSession.Response.Data.Content)
 	}
@@ -72,13 +117,5 @@ func (s *CommandSteps) theResponseShouldBeEphimeral() error {
 	if s.MockSession.Response.Data.Flags != discordgo.MessageFlagsEphemeral {
 		return fmt.Errorf("Response is not ephemiral")
 	}
-	return nil
-}
-
-func (s *CommandSteps) InitializeScenario(ctx *godog.ScenarioContext) error {
-	ctx.Step(`^any user sends a "([^"]*)" command with "([^"]*)" name as a parameter$`, s.anyUserSendsACommandWithNameParameter)
-	ctx.Step(`^a response should be given$`, s.aResponseShouldBeGiven)
-	ctx.Step(`^the response should be "([^"]*)"$`, s.theResponseShouldBe)
-	ctx.Step(`^the response should be ephimeral$`, s.theResponseShouldBeEphimeral)
 	return nil
 }
