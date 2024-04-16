@@ -26,7 +26,7 @@ func (s *CommandSteps) InitializeSuite(suite *godog.TestSuiteContext) error {
 	return nil
 }
 
-func (s *CommandSteps) anyUserSendsACommandWithName(commandName, name string) error {
+func (s *CommandSteps) anyUserSendsACommandWithNameParameter(commandName, name string) error {
 	mockSession := &MockSession{}
 	s.MockSession = mockSession
 
@@ -76,7 +76,7 @@ func (s *CommandSteps) theResponseShouldBeEphimeral() error {
 }
 
 func (s *CommandSteps) InitializeScenario(ctx *godog.ScenarioContext) error {
-	ctx.Step(`^any user sends a "([^"]*)" command with "([^"]*)" name$`, s.anyUserSendsACommandWithName)
+	ctx.Step(`^any user sends a "([^"]*)" command with "([^"]*)" name as a parameter$`, s.anyUserSendsACommandWithNameParameter)
 	ctx.Step(`^a response should be given$`, s.aResponseShouldBeGiven)
 	ctx.Step(`^the response should be "([^"]*)"$`, s.theResponseShouldBe)
 	ctx.Step(`^the response should be ephimeral$`, s.theResponseShouldBeEphimeral)
