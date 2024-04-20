@@ -2,7 +2,6 @@ package commands
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -50,8 +49,7 @@ var (
 				},
 			})
 			if err != nil {
-				log.Println("[register-player] response error: ", err)
-				return err
+				return fmt.Errorf("[register-player] response error: %v", err)
 			}
 
 			return nil
@@ -71,8 +69,7 @@ func AddPlayerCommands(session *discordgo.Session) error {
 	for index, command := range PlayerCommands {
 		cmd, err := session.ApplicationCommandCreate(session.State.User.ID, "", command)
 		if err != nil {
-			log.Printf("Cannot create '%v' command: %v", command.Name, err)
-			return err
+			return fmt.Errorf("Cannot create '%v' command: %v", command.Name, err)
 		}
 		registeredCommands[index] = cmd
 	}
@@ -83,8 +80,7 @@ func RemovePlayerCommands(session *discordgo.Session) error {
 	for _, command := range registeredCommands {
 		err := session.ApplicationCommandDelete(session.State.User.ID, "", command.ID)
 		if err != nil {
-			log.Printf("Cannot delete '%v' command: %v", command.Name, err)
-			return err
+			return fmt.Errorf("Cannot delete '%v' command: %v", command.Name, err)
 		}
 	}
 	return nil
