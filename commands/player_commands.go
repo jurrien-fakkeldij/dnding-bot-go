@@ -55,7 +55,7 @@ var (
 				err := session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
 					Type: discordgo.InteractionResponseChannelMessageWithSource,
 					Data: &discordgo.InteractionResponseData{
-						Content: fmt.Sprintf("You already registered %v. If this is not correct please contact the DM or admin.", player.Name),
+						Content: fmt.Sprintf("You already registered %v. If this is not correct please contact the DM or admin", player.Name),
 						Flags:   discordgo.MessageFlagsEphemeral,
 					},
 				})
@@ -66,7 +66,19 @@ var (
 			}
 			result := database.Connection.Create(&player)
 			if result.Error != nil {
-				return fmt.Errorf("[register-player] database error: %v", result.Error)
+				err := session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content: "Something went wrong, please try again or contact the server admin",
+						Flags:   discordgo.MessageFlagsEphemeral,
+					},
+				})
+
+				if err != nil {
+					return fmt.Errorf("[register-player] response error: %v -> %v", err, result.Error)
+				}
+
+				return fmt.Errorf("Could not save player [%s - %s]: %v", name, discordID, result.Error)
 			}
 			err := session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
