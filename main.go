@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
 	"jurrien/dnding-bot/commands"
+	"jurrien/dnding-bot/database"
 	"os"
 	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -19,11 +22,29 @@ var logger *log.Logger = log.NewWithOptions(os.Stderr, log.Options{
 func main() {
 	logger.Info("Starting server!")
 	token := os.Getenv("DISCORD_TOKEN")
-	StartServer(token)
+	databaseDSN := os.Getenv("DB_DSN")
+	ctx := context.Background()
+	StartServer(ctx, token, databaseDSN)
 }
 
-func StartServer(token string) {
+func StartServer(ctx context.Context, token string, dbDSN string) {
+	ctx, cancel := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
+
+	config := &database.Config{
+		DSN: dbDSN,
+	}
+
+	logger.Info("Setting up database", "dsn", dbDSN)
+	db, err := database.SetupDB(ctx, config)
+
+	if err != nil {
+		logger.Fatal("failed to setup database", "err", err)
+	}
+
+	logger.Info("Setup discord bot", "token", token)
 	session, err := SetupDiscordBot(token)
+
 	if err != nil {
 		logger.Fatal("Something went wrong with setting up the discord bot", "err", err)
 	}
@@ -32,14 +53,15 @@ func StartServer(token string) {
 		logger.Fatal("Something went wrong opening the discord session", "err", err)
 	}
 
-	if err = AddApplicationCommands(session); err != nil {
+	if err = AddApplicationCommands(session, db, logger); err != nil {
 		logger.Fatal("Something went wrong adding commands for the discord bot", "err", err)
 	}
 
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, os.Interrupt)
 	logger.Print("Press Ctrl+C to exit")
-	<-stop
+	<-ctx.Done()
+
+	_, cancel = context.WithTimeout(context.Background(), 29*time.Second)
+	defer cancel()
 
 	if err = RemoveApplicationCommands(session); err != nil {
 		logger.Error("Error removing application commands", "err", err)
@@ -62,8 +84,8 @@ func SetupDiscordBot(token string) (*discordgo.Session, error) {
 	return session, nil
 }
 
-func AddApplicationCommands(session *discordgo.Session) error {
-	err := commands.AddPlayerCommands(session)
+func AddApplicationCommands(session *discordgo.Session, database *database.DB, logger *log.Logger) error {
+	err := commands.AddPlayerCommands(session, database, logger)
 	if err != nil {
 		logger.Error("Error setting up player commands", "err", err)
 		return err

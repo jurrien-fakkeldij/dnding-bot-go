@@ -2,8 +2,11 @@ package commands
 
 import (
 	"fmt"
+	"jurrien/dnding-bot/database"
+	"jurrien/dnding-bot/models"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/charmbracelet/log"
 )
 
 var dmPermission = false
@@ -26,7 +29,7 @@ var (
 	}
 
 	PlayerCommandHandlers = map[string]CommandFunction{
-		"register_player": func(session SessionModel, interaction *discordgo.InteractionCreate) error {
+		"register_player": func(session SessionModel, database *database.DB, interaction *discordgo.InteractionCreate) error {
 			options := interaction.ApplicationCommandData().Options
 			optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
 			for _, opt := range options {
@@ -41,6 +44,12 @@ var (
 				name = interaction.Member.User.Username
 			}
 
+			player := models.Player{Name: name, DiscordID: interaction.Member.User.ID}
+
+			result := database.Connection.Create(&player)
+			if result.Error != nil {
+				return fmt.Errorf("[register-player] database error: %v", result.Error)
+			}
 			err := session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
@@ -59,10 +68,14 @@ var (
 
 var registeredCommands = make([]*discordgo.ApplicationCommand, len(PlayerCommands))
 
-func AddPlayerCommands(session *discordgo.Session) error {
+func AddPlayerCommands(session *discordgo.Session, database *database.DB, logger *log.Logger) error {
 	session.AddHandler(func(session *discordgo.Session, interaction *discordgo.InteractionCreate) {
-		if h, ok := PlayerCommandHandlers[interaction.ApplicationCommandData().Name]; ok {
-			h(session, interaction)
+		commandName := interaction.ApplicationCommandData().Name
+		if h, ok := PlayerCommandHandlers[commandName]; ok {
+			err := h(session, database, interaction)
+			if err != nil {
+				logger.Error("Error in a player command", "command", commandName, "error", err)
+			}
 		}
 	})
 

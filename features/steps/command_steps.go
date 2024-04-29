@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"jurrien/dnding-bot/commands"
+	"jurrien/dnding-bot/database"
+	"jurrien/dnding-bot/models"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/cucumber/godog"
@@ -22,18 +24,24 @@ type CommandSteps struct {
 	Session     *discordgo.Session
 	Interaction *discordgo.Interaction
 	MockSession *MockSession
+	Database    *database.DB
 }
 
 func (s *CommandSteps) InitializeScenario(scenario *godog.ScenarioContext) error {
 	scenario.Before(func(ctx context.Context, sc *godog.Scenario) (context.Context, error) {
 		s.Interaction = nil
-		return ctx, nil
+		var err error
+		s.Database, err = database.SetupDB(ctx, &database.Config{DSN: ":memory:"})
+		return ctx, err
 	})
-	scenario.Step(`^the user has a username "([^"]*)" on the server$`, s.theUserHasAUsernameOnTheServer)
+	scenario.Step(`^the user has a username "([^"]*)"$`, s.theUserHasAUsername)
+	scenario.Step(`^the user has an ID "([^"]*)"$`, s.theUserHasAnID)
 	scenario.Step(`^the user sends a "([^"]*)" command with "([^"]*)" name as a parameter$`, s.anyUserSendsACommandWithNameParameter)
 	scenario.Step(`^the user sends a "([^"]*)" command without a name as a parameter$`, s.theUserSendsACommandWithoutANameAsAParameter)
 	scenario.Step(`^the response "([^"]*)" is given$`, s.theResponseShouldBe)
 	scenario.Step(`^the response is ephimeral$`, s.theResponseShouldBeEphimeral)
+	scenario.Step(`^there is a player record in the database with "([^"]*)"$`, s.thereIsAPlayerRecordInTheDatabaseWith)
+	scenario.Step(`^the user with ID "([^"]*)" is registered with the name "([^"]*)"$`, s.theUserWithIDIsRegisteredWithTheName)
 	return nil
 }
 
@@ -41,16 +49,38 @@ func (s *CommandSteps) InitializeSuite(suite *godog.TestSuiteContext) error {
 	return nil
 }
 
-func (s *CommandSteps) theUserHasAUsernameOnTheServer(username string) error {
+func (s *CommandSteps) theUserHasAUsername(username string) error {
 	if s.Interaction == nil {
 		s.Interaction = &discordgo.Interaction{}
 	}
 
-	s.Interaction.Member = &discordgo.Member{
-		User: &discordgo.User{
-			Username: username,
-		},
+	if s.Interaction.Member == nil {
+		s.Interaction.Member = &discordgo.Member{
+			User: &discordgo.User{
+				ID: "some_id",
+			},
+		}
 	}
+
+	s.Interaction.Member.User.Username = username
+
+	return nil
+}
+
+func (s *CommandSteps) theUserHasAnID(id string) error {
+	if s.Interaction == nil {
+		s.Interaction = &discordgo.Interaction{}
+	}
+
+	if s.Interaction.Member == nil {
+		s.Interaction.Member = &discordgo.Member{
+			User: &discordgo.User{
+				Username: "some_name",
+			},
+		}
+	}
+
+	s.Interaction.Member.User.ID = id
 
 	return nil
 }
@@ -97,7 +127,7 @@ func (s *CommandSteps) sendCommand(commandName string) error {
 		return fmt.Errorf("No command: %s found", commandName)
 	}
 
-	return commands.PlayerCommandHandlers[command.Name](mockSession, &discordgo.InteractionCreate{
+	return commands.PlayerCommandHandlers[command.Name](mockSession, s.Database, &discordgo.InteractionCreate{
 		Interaction: s.Interaction,
 	})
 }
@@ -117,5 +147,26 @@ func (s *CommandSteps) theResponseShouldBeEphimeral() error {
 	if s.MockSession.Response.Data.Flags != discordgo.MessageFlagsEphemeral {
 		return fmt.Errorf("Response is not ephemiral")
 	}
+	return nil
+}
+
+func (s *CommandSteps) thereIsAPlayerRecordInTheDatabaseWith(player_name string) error {
+	var player models.Player
+
+	result := s.Database.Connection.Where("name = ?", player_name).First(&player)
+	if result.Error != nil {
+		return fmt.Errorf("Error geting player with name %s: %v", player_name, result.Error)
+	}
+
+	if player.Name != player_name {
+		return fmt.Errorf("Not sure what happened but found a different name")
+	}
+
+	return nil
+}
+
+func (s *CommandSteps) theUserWithIDIsRegisteredWithTheName(id string, name string) error {
+	player := models.Player{Name: name, DiscordID: id}
+	s.Database.Connection.Save(&player)
 	return nil
 }
