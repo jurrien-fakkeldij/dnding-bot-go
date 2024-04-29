@@ -6,10 +6,20 @@ import (
 	"jurrien/dnding-bot/commands"
 	"jurrien/dnding-bot/database"
 	"jurrien/dnding-bot/models"
+	"os"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/charmbracelet/log"
 	"github.com/cucumber/godog"
 )
+
+var logger *log.Logger = log.NewWithOptions(os.Stderr, log.Options{
+	ReportCaller:    true,
+	ReportTimestamp: true,
+	TimeFormat:      time.DateTime,
+	Level:           log.FatalLevel,
+})
 
 type MockSession struct {
 	Response *discordgo.InteractionResponse
@@ -127,7 +137,7 @@ func (s *CommandSteps) sendCommand(commandName string) error {
 		return fmt.Errorf("No command: %s found", commandName)
 	}
 
-	return commands.PlayerCommandHandlers[command.Name](mockSession, s.Database, &discordgo.InteractionCreate{
+	return commands.PlayerCommandHandlers[command.Name](mockSession, s.Database, logger, &discordgo.InteractionCreate{
 		Interaction: s.Interaction,
 	})
 }

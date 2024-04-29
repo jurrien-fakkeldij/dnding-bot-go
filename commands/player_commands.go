@@ -29,7 +29,7 @@ var (
 	}
 
 	PlayerCommandHandlers = map[string]CommandFunction{
-		"register_player": func(session SessionModel, database *database.DB, interaction *discordgo.InteractionCreate) error {
+		"register_player": func(session SessionModel, database *database.DB, logger *log.Logger, interaction *discordgo.InteractionCreate) error {
 			options := interaction.ApplicationCommandData().Options
 			optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
 			for _, opt := range options {
@@ -44,8 +44,26 @@ var (
 				name = interaction.Member.User.Username
 			}
 
-			player := models.Player{Name: name, DiscordID: interaction.Member.User.ID}
+			discordID := interaction.Member.User.ID
 
+			player := models.Player{Name: name, DiscordID: discordID}
+			var old_player []models.Player
+			database.Connection.Where("discord_id = ?", discordID).Find(&old_player)
+			if len(old_player) != 0 {
+				player = old_player[0]
+				logger.Warn("User is already registered.", "name", player.Name, "discordID", discordID, "new_name", name)
+				err := session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content: fmt.Sprintf("You already registered %v. If this is not correct please contact the DM or admin.", player.Name),
+						Flags:   discordgo.MessageFlagsEphemeral,
+					},
+				})
+				if err != nil {
+					return fmt.Errorf("[register-player] response error: %v", err)
+				}
+				return nil
+			}
 			result := database.Connection.Create(&player)
 			if result.Error != nil {
 				return fmt.Errorf("[register-player] database error: %v", result.Error)
@@ -72,7 +90,7 @@ func AddPlayerCommands(session *discordgo.Session, database *database.DB, logger
 	session.AddHandler(func(session *discordgo.Session, interaction *discordgo.InteractionCreate) {
 		commandName := interaction.ApplicationCommandData().Name
 		if h, ok := PlayerCommandHandlers[commandName]; ok {
-			err := h(session, database, interaction)
+			err := h(session, database, logger, interaction)
 			if err != nil {
 				logger.Error("Error in a player command", "command", commandName, "error", err)
 			}
