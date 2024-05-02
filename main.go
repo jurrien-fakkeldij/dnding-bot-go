@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"jurrien/dnding-bot/commands"
 	"jurrien/dnding-bot/database"
 	"os"
@@ -85,20 +86,33 @@ func SetupDiscordBot(token string) (*discordgo.Session, error) {
 }
 
 func AddApplicationCommands(session *discordgo.Session, database *database.DB, logger *log.Logger) error {
-	err := commands.AddPlayerCommands(session, database, logger)
-	if err != nil {
-		logger.Error("Error setting up player commands", "err", err)
-		return err
+	session.AddHandler(func(session *discordgo.Session, interaction *discordgo.InteractionCreate) {
+		commandName := interaction.ApplicationCommandData().Name
+		if h, ok := commands.AllCommandHandlers[commandName]; ok {
+			err := h(session, database, logger, interaction)
+			if err != nil {
+				logger.Error("Error in a command", "command", commandName, "error", err)
+			}
+		}
+	})
+
+	for index, command := range commands.AllCommands {
+		cmd, err := session.ApplicationCommandCreate(session.State.User.ID, "", command)
+		if err != nil {
+			return fmt.Errorf("Cannot create '%v' command: %v", command.Name, err)
+		}
+		commands.RegisteredCommands[index] = cmd
 	}
 
 	return nil
 }
 
 func RemoveApplicationCommands(session *discordgo.Session) error {
-	err := commands.RemovePlayerCommands(session)
-	if err != nil {
-		logger.Error("Error removing player commands", "err", err)
-		return err
+	for _, command := range commands.RegisteredCommands {
+		err := session.ApplicationCommandDelete(session.State.User.ID, "", command.ID)
+		if err != nil {
+			return fmt.Errorf("Cannot delete '%v' command: %v", command.Name, err)
+		}
 	}
 	return nil
 }

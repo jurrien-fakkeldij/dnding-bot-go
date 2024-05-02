@@ -46,6 +46,7 @@ func (s *CommandSteps) InitializeScenario(scenario *godog.ScenarioContext) error
 	})
 	scenario.Step(`^the user has a username "([^"]*)"$`, s.theUserHasAUsername)
 	scenario.Step(`^the user has an ID "([^"]*)"$`, s.theUserHasAnID)
+	scenario.Step(`^the user sends a "([^"]*)" command$`, s.theUserSendsACommand)
 	scenario.Step(`^the user sends a "([^"]*)" command with "([^"]*)" name as a parameter$`, s.anyUserSendsACommandWithNameParameter)
 	scenario.Step(`^the user sends a "([^"]*)" command without a name as a parameter$`, s.theUserSendsACommandWithoutANameAsAParameter)
 	scenario.Step(`^the response "([^"]*)" is given$`, s.theResponseShouldBe)
@@ -95,6 +96,19 @@ func (s *CommandSteps) theUserHasAnID(id string) error {
 	return nil
 }
 
+func (s *CommandSteps) theUserSendsACommand(commandName string) error {
+	mockSession := &MockSession{}
+	s.MockSession = mockSession
+
+	if s.Interaction == nil {
+		s.Interaction = &discordgo.Interaction{}
+	}
+	s.Interaction.ID = ""
+	s.Interaction.Type = discordgo.InteractionApplicationCommand
+	s.Interaction.Data = discordgo.ApplicationCommandInteractionData{}
+	return s.sendCommand(commandName)
+}
+
 func (s *CommandSteps) theUserSendsACommandWithoutANameAsAParameter(commandName string) error {
 	mockSession := &MockSession{}
 	s.MockSession = mockSession
@@ -128,7 +142,7 @@ func (s *CommandSteps) sendCommand(commandName string) error {
 	s.MockSession = mockSession
 
 	var command *discordgo.ApplicationCommand
-	for _, player_command := range commands.PlayerCommands {
+	for _, player_command := range commands.AllCommands {
 		if player_command.Name == commandName {
 			command = player_command
 		}
@@ -137,7 +151,7 @@ func (s *CommandSteps) sendCommand(commandName string) error {
 		return fmt.Errorf("No command: %s found", commandName)
 	}
 
-	return commands.PlayerCommandHandlers[command.Name](mockSession, s.Database, logger, &discordgo.InteractionCreate{
+	return commands.AllCommandHandlers[command.Name](mockSession, s.Database, logger, &discordgo.InteractionCreate{
 		Interaction: s.Interaction,
 	})
 }

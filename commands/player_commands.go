@@ -9,9 +9,8 @@ import (
 	"github.com/charmbracelet/log"
 )
 
-var dmPermission = false
-
 var (
+	dmPermission   = false
 	PlayerCommands = []*discordgo.ApplicationCommand{
 		{
 			Name:         "register_player",
@@ -64,6 +63,7 @@ var (
 				}
 				return nil
 			}
+
 			result := database.Connection.Create(&player)
 			if result.Error != nil {
 				err := session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
