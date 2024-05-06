@@ -2,6 +2,13 @@ Feature: Help Commands
 	Scenario: a player wants to know the commands
 		Given the user has a username "server_username"
 		When the user sends a "help" command
-		Then the response "You have registered yourself with the name test_user" is given
-		And the response is ephimeral
-		And there is a player record in the database with "test_user"
+		Then the response is
+		"""
+```       COMMAND       |                  DESCRIPTION                   
+---------------------|------------------------------------------------
+    help               | Lists all the commands available for users     
+    register_character | Register your character for your discord user  
+    register_player    | Ability to register yourself as player         
+```
+		"""
+		And the response is ephemeral

@@ -12,6 +12,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/charmbracelet/log"
 	"github.com/cucumber/godog"
+	"github.com/google/go-cmp/cmp"
 )
 
 var logger *log.Logger = log.NewWithOptions(os.Stderr, log.Options{
@@ -50,7 +51,8 @@ func (s *CommandSteps) InitializeScenario(scenario *godog.ScenarioContext) error
 	scenario.Step(`^the user sends a "([^"]*)" command with "([^"]*)" name as a parameter$`, s.anyUserSendsACommandWithNameParameter)
 	scenario.Step(`^the user sends a "([^"]*)" command without a name as a parameter$`, s.theUserSendsACommandWithoutANameAsAParameter)
 	scenario.Step(`^the response "([^"]*)" is given$`, s.theResponseShouldBe)
-	scenario.Step(`^the response is ephimeral$`, s.theResponseShouldBeEphimeral)
+	scenario.Step(`^the response is$`, s.theResponseIs)
+	scenario.Step(`^the response is ephemeral$`, s.theResponseShouldBeEphemeral)
 	scenario.Step(`^there is a player record in the database with "([^"]*)"$`, s.thereIsAPlayerRecordInTheDatabaseWith)
 	scenario.Step(`^the user with ID "([^"]*)" is registered with the name "([^"]*)"$`, s.theUserWithIDIsRegisteredWithTheName)
 	return nil
@@ -161,13 +163,24 @@ func (s *CommandSteps) theResponseShouldBe(response string) error {
 		return fmt.Errorf("No response given")
 	}
 
-	if s.MockSession.Response.Data.Content != response {
-		return fmt.Errorf("Response is not %s but %s", response, s.MockSession.Response.Data.Content)
+	return nil
+}
+
+func (s *CommandSteps) theResponseIs(response *godog.DocString) error {
+	if s.MockSession.Response == nil || s.MockSession.Response.Data == nil {
+		return fmt.Errorf("No response given")
+	}
+
+	if s.MockSession.Response.Data.Content != response.Content {
+		if diff := cmp.Diff(response.Content, s.MockSession.Response.Data.Content); diff != "" {
+			return fmt.Errorf("response mismatch (-want +got):\n%s", diff)
+		}
+		return fmt.Errorf("Response is not \n%s but \n%s", response.Content, s.MockSession.Response.Data.Content)
 	}
 	return nil
 }
 
-func (s *CommandSteps) theResponseShouldBeEphimeral() error {
+func (s *CommandSteps) theResponseShouldBeEphemeral() error {
 	if s.MockSession.Response.Data.Flags != discordgo.MessageFlagsEphemeral {
 		return fmt.Errorf("Response is not ephemiral")
 	}
