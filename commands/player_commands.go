@@ -10,7 +10,6 @@ import (
 )
 
 var (
-	dmPermission   = false
 	PlayerCommands = []*discordgo.ApplicationCommand{
 		{
 			Name:         "register_player",
@@ -95,36 +94,3 @@ var (
 		},
 	}
 )
-
-var registeredCommands = make([]*discordgo.ApplicationCommand, len(PlayerCommands))
-
-func AddPlayerCommands(session *discordgo.Session, database *database.DB, logger *log.Logger) error {
-	session.AddHandler(func(session *discordgo.Session, interaction *discordgo.InteractionCreate) {
-		commandName := interaction.ApplicationCommandData().Name
-		if h, ok := PlayerCommandHandlers[commandName]; ok {
-			err := h(session, database, logger, interaction)
-			if err != nil {
-				logger.Error("Error in a player command", "command", commandName, "error", err)
-			}
-		}
-	})
-
-	for index, command := range PlayerCommands {
-		cmd, err := session.ApplicationCommandCreate(session.State.User.ID, "", command)
-		if err != nil {
-			return fmt.Errorf("Cannot create '%v' command: %v", command.Name, err)
-		}
-		registeredCommands[index] = cmd
-	}
-	return nil
-}
-
-func RemovePlayerCommands(session *discordgo.Session) error {
-	for _, command := range registeredCommands {
-		err := session.ApplicationCommandDelete(session.State.User.ID, "", command.ID)
-		if err != nil {
-			return fmt.Errorf("Cannot delete '%v' command: %v", command.Name, err)
-		}
-	}
-	return nil
-}

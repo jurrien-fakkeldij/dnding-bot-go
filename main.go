@@ -20,6 +20,8 @@ var logger *log.Logger = log.NewWithOptions(os.Stderr, log.Options{
 	TimeFormat:      time.DateTime,
 })
 
+var guilds = []*discordgo.Guild{}
+
 func main() {
 	logger.Info("Starting server!")
 	token := os.Getenv("DISCORD_TOKEN")
@@ -46,6 +48,24 @@ func StartServer(ctx context.Context, token string, dbDSN string) {
 	logger.Info("Setup discord bot", "token", token)
 	session, err := SetupDiscordBot(token)
 
+	session.AddHandler(func(s *discordgo.Session, r *discordgo.Ready) {
+		logger.Info("Logged in as", "user", s.State.User.Username, "#", s.State.User.Discriminator)
+	})
+
+	AddingInteractionCreateHandler(session, db, logger)
+
+	session.AddHandler(func(s *discordgo.Session, gc *discordgo.GuildCreate) {
+		logger.Info("Guild create", "guild", gc.Guild.Name, "id", gc.Guild.ID)
+		if err = AddApplicationCommands(session, gc.Guild); err != nil {
+			logger.Fatal("Something went wrong adding commands for the discord bot", "err", err)
+		}
+		guilds = append(guilds, gc.Guild)
+	})
+
+	session.AddHandler(func(s *discordgo.Session, gd *discordgo.GuildDelete) {
+		logger.Info("Guild delete")
+	})
+
 	if err != nil {
 		logger.Fatal("Something went wrong with setting up the discord bot", "err", err)
 	}
@@ -54,19 +74,13 @@ func StartServer(ctx context.Context, token string, dbDSN string) {
 		logger.Fatal("Something went wrong opening the discord session", "err", err)
 	}
 
-	if err = AddApplicationCommands(session, db, logger); err != nil {
-		logger.Fatal("Something went wrong adding commands for the discord bot", "err", err)
-	}
-
 	logger.Print("Press Ctrl+C to exit")
 	<-ctx.Done()
 
 	_, cancel = context.WithTimeout(context.Background(), 29*time.Second)
 	defer cancel()
 
-	if err = RemoveApplicationCommands(session); err != nil {
-		logger.Error("Error removing application commands", "err", err)
-	}
+	RemoveApplicationCommands(session)
 
 	if err = StopDiscordBot(session); err != nil {
 		logger.Fatal("Could not stop discord session gracefully: %v", err)
@@ -85,8 +99,9 @@ func SetupDiscordBot(token string) (*discordgo.Session, error) {
 	return session, nil
 }
 
-func AddApplicationCommands(session *discordgo.Session, database *database.DB, logger *log.Logger) error {
+func AddingInteractionCreateHandler(session *discordgo.Session, database *database.DB, logger *log.Logger) {
 	session.AddHandler(func(session *discordgo.Session, interaction *discordgo.InteractionCreate) {
+		logger.Info("Executing for command", "command", interaction.ApplicationCommandData().Name)
 		commandName := interaction.ApplicationCommandData().Name
 		if h, ok := commands.AllCommandHandlers[commandName]; ok {
 			err := h(session, database, logger, interaction)
@@ -95,9 +110,12 @@ func AddApplicationCommands(session *discordgo.Session, database *database.DB, l
 			}
 		}
 	})
+}
 
+func AddApplicationCommands(session *discordgo.Session, guild *discordgo.Guild) error {
 	for index, command := range commands.AllCommands {
-		cmd, err := session.ApplicationCommandCreate(session.State.User.ID, "", command)
+		logger.Info("Adding command", "command", command.Name, "guild", guild.Name)
+		cmd, err := session.ApplicationCommandCreate(session.State.User.ID, guild.ID, command)
 		if err != nil {
 			return fmt.Errorf("Cannot create '%v' command: %v", command.Name, err)
 		}
@@ -107,9 +125,9 @@ func AddApplicationCommands(session *discordgo.Session, database *database.DB, l
 	return nil
 }
 
-func RemoveApplicationCommands(session *discordgo.Session) error {
+func RemoveGuildApplicationCommands(session *discordgo.Session, guild *discordgo.Guild) error {
 	for _, command := range commands.RegisteredCommands {
-		err := session.ApplicationCommandDelete(session.State.User.ID, "", command.ID)
+		err := session.ApplicationCommandDelete(session.State.User.ID, guild.ID, command.ID)
 		if err != nil {
 			return fmt.Errorf("Cannot delete '%v' command: %v", command.Name, err)
 		}
@@ -117,7 +135,17 @@ func RemoveApplicationCommands(session *discordgo.Session) error {
 	return nil
 }
 
+func RemoveApplicationCommands(session *discordgo.Session) {
+	for _, guild := range guilds {
+		err := RemoveGuildApplicationCommands(session, guild)
+		if err != nil {
+			logger.Error("Error removing commands from guild", "guild", guild.Name, "error", err)
+		}
+	}
+}
+
 func StartDiscordBot(session *discordgo.Session) error {
+	session.Identify.Intents = discordgo.IntentsGuilds | discordgo.IntentsGuildMessages
 	return session.Open()
 }
 

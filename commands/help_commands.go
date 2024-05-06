@@ -3,9 +3,11 @@ package commands
 import (
 	"fmt"
 	"jurrien/dnding-bot/database"
+	"strings"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/charmbracelet/log"
+	"github.com/olekukonko/tablewriter"
 )
 
 var (
@@ -20,48 +22,44 @@ var (
 	HelpCommandHandlers = map[string]CommandFunction{
 		"help": func(session SessionModel, database *database.DB, logger *log.Logger, interaction *discordgo.InteractionCreate) error {
 			dm_role := false
-			for role := range interaction.Member.Roles {
+			for _, roleID := range interaction.Member.Roles {
+				role, err := session.(*discordgo.Session).State.Role(interaction.GuildID, roleID)
+				if err != nil {
+					return fmt.Errorf("Something went wrong checking the role for the help interaction: %v", err)
+				}
+				if role.Name == DM_ROLE_NAME {
+					dm_role = true
+				}
 				logger.Info("Checking Role", "role", role, "dm_role", dm_role)
 			}
 
+			tableString := &strings.Builder{}
+			table := tablewriter.NewWriter(tableString)
+			table.SetBorder(false)
+			table.SetCenterSeparator("|")
+			table.SetHeader([]string{"Command", "Description"})
+			table.SetAutoWrapText(false)
+
 			for _, command := range AllCommands {
 				logger.Info("Command information", "command", command.Name, "description", command.Description)
+				if (strings.Contains(command.Name, "[DM]") && dm_role) || !strings.Contains(command.Name, "[DM]") {
+					table.Append([]string{command.Name, command.Description})
+				}
+			}
+			table.Render()
+			err := session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content: fmt.Sprintf("```%s```", tableString.String()),
+					Flags:   discordgo.MessageFlagsEphemeral,
+				},
+			})
+
+			if err != nil {
+				return fmt.Errorf("Error sending response for help command: %v", err)
 			}
 
 			return nil
 		},
 	}
 )
-
-var registeredHelpCommands = make([]*discordgo.ApplicationCommand, len(HelpCommands))
-
-func AddHelpCommands(session *discordgo.Session, database *database.DB, logger *log.Logger) error {
-	session.AddHandler(func(session *discordgo.Session, interaction *discordgo.InteractionCreate) {
-		commandName := interaction.ApplicationCommandData().Name
-		if h, ok := PlayerCommandHandlers[commandName]; ok {
-			err := h(session, database, logger, interaction)
-			if err != nil {
-				logger.Error("Error in a player command", "command", commandName, "error", err)
-			}
-		}
-	})
-
-	for index, command := range HelpCommands {
-		cmd, err := session.ApplicationCommandCreate(session.State.User.ID, "", command)
-		if err != nil {
-			return fmt.Errorf("Cannot create '%v' command: %v", command.Name, err)
-		}
-		registeredHelpCommands[index] = cmd
-	}
-	return nil
-}
-
-func RemoveHelpCommands(session *discordgo.Session) error {
-	for _, command := range registeredHelpCommands {
-		err := session.ApplicationCommandDelete(session.State.User.ID, "", command.ID)
-		if err != nil {
-			return fmt.Errorf("Cannot delete '%v' command: %v", command.Name, err)
-		}
-	}
-	return nil
-}

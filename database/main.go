@@ -45,6 +45,10 @@ func SetupDB(ctx context.Context, config *Config) (*DB, error) {
 		return nil, fmt.Errorf("Failed to run auto migration on the database: %v", err)
 	}
 
+	if err = Migrations(database); err != nil {
+		return nil, fmt.Errorf("Could not do migrations: %v", err)
+	}
+
 	go func() {
 		<-ctx.Done()
 		db_logger.Info("Shutting down database connection")

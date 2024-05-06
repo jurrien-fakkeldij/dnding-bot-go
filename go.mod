@@ -6,6 +6,9 @@ require (
 	github.com/bwmarrin/discordgo v0.27.1
 	github.com/charmbracelet/log v0.4.0
 	github.com/cucumber/godog v0.14.0
+	github.com/google/go-cmp v0.5.9
+	github.com/olekukonko/tablewriter v0.0.5
+	github.com/spf13/pflag v1.0.5
 	github.com/tursodatabase/go-libsql v0.0.0-20240418131656-29cbe90b12a1
 	github.com/ytsruh/gorm-libsql v0.1.2
 	gorm.io/gorm v1.25.9
@@ -33,7 +36,6 @@ require (
 	github.com/muesli/reflow v0.3.0 // indirect
 	github.com/muesli/termenv v0.15.2 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
-	github.com/spf13/pflag v1.0.5 // indirect
 	golang.org/x/crypto v0.0.0-20210421170649-83a5a9bb288b // indirect
 	golang.org/x/exp v0.0.0-20240325151524-a685a6edb6d8 // indirect
 	golang.org/x/sys v0.19.0 // indirect
