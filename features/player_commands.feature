@@ -20,6 +20,8 @@ Feature: Player Commands
 		When the user sends a "register_player" command with "test_user" name as a parameter
 		Then the response "You already registered test_user. If this is not correct please contact the DM or admin" is given
 		And the response is ephemeral
+		And there is no player record in the database with "server_username"
+		And there is a player record in the database with "test_user"
 	
 	Scenario: an existent player registers without a name as a parameter
 		Given the user has a username "server_username"
@@ -28,3 +30,5 @@ Feature: Player Commands
 		When the user sends a "register_player" command without a name as a parameter
 		Then the response "You already registered test_user. If this is not correct please contact the DM or admin" is given
 		And the response is ephemeral
+		And there is a player record in the database with "test_user"
+		And there is no player record in the database with "server_username"

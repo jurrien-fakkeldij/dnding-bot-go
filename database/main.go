@@ -12,6 +12,7 @@ import (
 	_ "github.com/tursodatabase/go-libsql"
 	sqlite "github.com/ytsruh/gorm-libsql"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 type Config struct {
@@ -36,7 +37,9 @@ func SetupDB(ctx context.Context, config *Config) (*DB, error) {
 	// Pass a DSN or Turso DB url to Gorm. The url must also include an authToken as a query parameter
 	if database.Connection, err = gorm.Open(sqlite.New(sqlite.Config{
 		DSN: config.DSN,
-	}), &gorm.Config{}); err != nil {
+	}), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent), //TODO: for now silent need to figure this out later
+	}); err != nil {
 		return nil, fmt.Errorf("Failed to connect and open database: %w", err)
 	}
 

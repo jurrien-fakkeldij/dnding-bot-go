@@ -28,6 +28,7 @@ var (
 
 	CharacterCommandHandlers = map[string]CommandFunction{
 		"register_character": func(session SessionModel, database *database.DB, logger *log.Logger, interaction *discordgo.InteractionCreate) error {
+			logger.Info("Registering player")
 			options := interaction.ApplicationCommandData().Options
 			optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
 			for _, opt := range options {
@@ -37,16 +38,14 @@ var (
 			characterName := ""
 			option, ok := optionMap["character_name"]
 			if ok {
-				characterName = option.StringValue()
-			} else {
-				characterName = interaction.Member.User.Username
+				characterName = option.StringValue() //mandatory name so should be here
 			}
 
 			discordID := interaction.User.ID
 
-			var player *models.Player
-			database.Connection.Where("discord_id = ?", discordID).First(player)
-			if player == nil {
+			var player models.Player
+			result := database.Connection.Where("discord_id = ?", discordID).First(&player)
+			if result.RowsAffected == 0 {
 				logger.Warn("No player found for user", "discord_id", discordID)
 				err := session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
 					Type: discordgo.InteractionResponseChannelMessageWithSource,
@@ -61,13 +60,15 @@ var (
 				}
 			}
 
-			logger.Info("Registering character for user", "user", discordID, "character", characterName)
+			logger.Info("Registering character for user", "user", discordID, "character", characterName, "player", player)
 			character := &models.Character{
 				Name:     &characterName,
 				PlayerID: player.PlayerID,
 			}
 
-			result := database.Connection.Create(character)
+			logger.Info("Saving character to database", "character", character)
+
+			result = database.Connection.Create(character)
 			if result.Error != nil || result.RowsAffected == 0 {
 				logger.Error("Error saving character to database", "character", character, "error", result.Error)
 

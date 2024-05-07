@@ -26,6 +26,7 @@ var (
 	commandHandlers = []map[string]CommandFunction{
 		PlayerCommandHandlers,
 		HelpCommandHandlers,
+		CharacterCommandHandlers,
 	}
 
 	AllCommands        = mergeCommandList()

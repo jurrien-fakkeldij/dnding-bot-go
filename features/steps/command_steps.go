@@ -55,6 +55,8 @@ func (s *CommandSteps) InitializeScenario(scenario *godog.ScenarioContext) error
 	scenario.Step(`^the response is ephemeral$`, s.theResponseShouldBeEphemeral)
 	scenario.Step(`^there is a player record in the database with "([^"]*)"$`, s.thereIsAPlayerRecordInTheDatabaseWith)
 	scenario.Step(`^the user with ID "([^"]*)" is registered with the name "([^"]*)"$`, s.theUserWithIDIsRegisteredWithTheName)
+	scenario.Step(`^there is no player record in the database with "([^"]*)"$`, s.thereIsNoPlayerRecordInTheDatabaseWith)
+	scenario.Step(`^there is a character record in the database for "([^"]*)" with the name "([^"]*)"$`, s.thereIsACharacterRecordInTheDatabaseForWithTheName)
 	return nil
 }
 
@@ -95,6 +97,14 @@ func (s *CommandSteps) theUserHasAnID(id string) error {
 
 	s.Interaction.Member.User.ID = id
 
+	if s.Interaction.User == nil {
+		s.Interaction.User = &discordgo.User{
+			Username: "some_name",
+		}
+	}
+
+	s.Interaction.User.ID = id
+
 	return nil
 }
 
@@ -130,11 +140,20 @@ func (s *CommandSteps) anyUserSendsACommandWithNameParameter(commandName, name s
 	}
 	s.Interaction.ID = ""
 	s.Interaction.Type = discordgo.InteractionApplicationCommand
-	s.Interaction.Data = discordgo.ApplicationCommandInteractionData{
-		Name: "test",
-		Options: []*discordgo.ApplicationCommandInteractionDataOption{
-			{Name: "player_name", Value: name, Type: discordgo.ApplicationCommandOptionString},
-		},
+	if commandName == "register_player" {
+		s.Interaction.Data = discordgo.ApplicationCommandInteractionData{
+			Name: "test",
+			Options: []*discordgo.ApplicationCommandInteractionDataOption{
+				{Name: "player_name", Value: name, Type: discordgo.ApplicationCommandOptionString},
+			},
+		}
+	} else if commandName == "register_character" {
+		s.Interaction.Data = discordgo.ApplicationCommandInteractionData{
+			Name: "test",
+			Options: []*discordgo.ApplicationCommandInteractionDataOption{
+				{Name: "character_name", Value: name, Type: discordgo.ApplicationCommandOptionString},
+			},
+		}
 	}
 	return s.sendCommand(commandName)
 }
@@ -144,18 +163,26 @@ func (s *CommandSteps) sendCommand(commandName string) error {
 	s.MockSession = mockSession
 
 	var command *discordgo.ApplicationCommand
-	for _, player_command := range commands.AllCommands {
-		if player_command.Name == commandName {
-			command = player_command
+	for _, _command := range commands.AllCommands {
+		if _command.Name == commandName {
+			command = _command
 		}
 	}
+
 	if command == nil {
 		return fmt.Errorf("No command: %s found", commandName)
 	}
 
-	return commands.AllCommandHandlers[command.Name](mockSession, s.Database, logger, &discordgo.InteractionCreate{
+	fmt.Printf("Command %s interaction %v\n", command.Name, s.Interaction)
+	fmt.Printf("Command %s interaction %v\n", command.Name, s.Interaction.Member.User.ID)
+
+	err := commands.AllCommandHandlers[command.Name](mockSession, s.Database, logger, &discordgo.InteractionCreate{
 		Interaction: s.Interaction,
 	})
+
+	fmt.Printf("ERROR: %v", err)
+
+	return err
 }
 
 func (s *CommandSteps) theResponseShouldBe(response string) error {
@@ -202,8 +229,36 @@ func (s *CommandSteps) thereIsAPlayerRecordInTheDatabaseWith(player_name string)
 	return nil
 }
 
+func (s *CommandSteps) thereIsNoPlayerRecordInTheDatabaseWith(player_name string) error {
+	var player models.Player
+
+	result := s.Database.Connection.Where("name = ?", player_name).First(&player)
+	if result.RowsAffected != 0 {
+		return fmt.Errorf("Found player record for %s: %v", player_name, player)
+	}
+	return nil
+}
+
 func (s *CommandSteps) theUserWithIDIsRegisteredWithTheName(id string, name string) error {
 	player := models.Player{Name: name, DiscordID: id}
 	s.Database.Connection.Save(&player)
+	return nil
+}
+
+func (s *CommandSteps) thereIsACharacterRecordInTheDatabaseForWithTheName(player_name, character_name string) error {
+	var player models.Player
+	var character models.Character
+
+	result := s.Database.Connection.Where("name = ?", player_name).First(&player)
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("Have not found player record for %s", player_name)
+	}
+
+	result = s.Database.Connection.Where("name = ?", character_name).First(&character)
+
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("Have not found character record with name %s for player %s", character_name, player.Name)
+	}
+
 	return nil
 }
