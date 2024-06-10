@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"reflect"
 	"time"
 
 	"jurrien/dnding-bot/models"
+	"jurrien/dnding-bot/utils"
 
 	"github.com/charmbracelet/log"
 	_ "github.com/tursodatabase/go-libsql"
@@ -67,6 +69,8 @@ func SetupDB(ctx context.Context, config *Config) (*DB, error) {
 		return nil, fmt.Errorf("Could not do migrations: %v", err)
 	}
 
+	intialiseExpenseTypes(database)
+
 	go func() {
 		<-ctx.Done()
 		db_logger.Info("Shutting down database connection")
@@ -78,4 +82,44 @@ func SetupDB(ctx context.Context, config *Config) (*DB, error) {
 		db_logger.Info("Gracefully shut down database connection")
 	}()
 	return database, nil
+}
+
+func intialiseExpenseTypes(db *DB) {
+	db_logger.Info("Initialise expenses")
+	db_logger.Debug("Reading Current Expense Types")
+	v := reflect.ValueOf(utils.ExpenseType)
+	typeOfExpenseType := v.Type()
+
+	var expenses []models.Expense
+
+	err := db.GetConnection().Model(&models.Expense{}).Find(&expenses).Error
+	if err != nil {
+		db_logger.Fatal("Could not get expenses", "error", err)
+	}
+
+	for i := 0; i < v.NumField(); i++ {
+		expenseType := typeOfExpenseType.Field(i).Name
+		expenseValue := v.Field(i).Interface()
+
+		db_logger.Info("Initialising ExpenseType", "type", expenseType)
+		found_expense := false
+		for _, expense := range expenses {
+			if expense.Name == expenseValue {
+				found_expense = true
+			}
+		}
+
+		if found_expense {
+			db_logger.Warn("Expense already exists in database. Doing nothing", "expense", expenseType)
+		} else {
+			expense := &models.Expense{
+				Name: expenseValue.(string),
+			}
+			db_logger.Info("Saving Expense", "expense", expenseType)
+			err := db.GetConnection().Save(expense).Error
+			if err != nil {
+				db_logger.Fatal("Saving Expense went wrong", "expense", expenseType, "error", err)
+			}
+		}
+	}
 }
