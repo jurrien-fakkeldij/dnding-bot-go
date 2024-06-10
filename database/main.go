@@ -21,6 +21,7 @@ type Config struct {
 
 type DB struct {
 	Connection *gorm.DB
+	Config     *Config
 }
 
 var db_logger *log.Logger = log.NewWithOptions(os.Stderr, log.Options{
@@ -30,10 +31,24 @@ var db_logger *log.Logger = log.NewWithOptions(os.Stderr, log.Options{
 	Prefix:          "db_logger",
 })
 
+func (db *DB) GetConnection() *gorm.DB {
+	var err error
+	if db.Connection, err = gorm.Open(sqlite.New(sqlite.Config{
+		DSN: db.Config.DSN,
+	}), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent), //TODO: for now silent need to figure this out later
+	}); err != nil {
+		db_logger.Error("Failed to connect and open database", "error", err)
+		return nil
+	}
+
+	return db.Connection
+}
+
 func SetupDB(ctx context.Context, config *Config) (*DB, error) {
 	database := &DB{}
 	var err error
-
+	database.Config = config
 	// Pass a DSN or Turso DB url to Gorm. The url must also include an authToken as a query parameter
 	if database.Connection, err = gorm.Open(sqlite.New(sqlite.Config{
 		DSN: config.DSN,

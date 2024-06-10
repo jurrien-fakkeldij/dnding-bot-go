@@ -7,6 +7,7 @@ Feature: Help Commands
 ```       COMMAND       |                  DESCRIPTION                   
 ---------------------|------------------------------------------------
     help               | Lists all the commands available for users     
+    list_my_characters | Lists your characters                          
     register_character | Register your character for your discord user  
     register_player    | Ability to register yourself as player         
 ```

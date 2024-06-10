@@ -39,7 +39,7 @@ var (
 			if ok {
 				name = option.StringValue()
 			} else {
-				name = interaction.Member.User.Username
+				name = interaction.Member.Nick
 			}
 
 			discordID := interaction.Member.User.ID
@@ -63,7 +63,7 @@ var (
 				return nil
 			}
 
-			result := database.Connection.Create(&player)
+			result := database.Connection.Save(&player)
 			if result.Error != nil {
 				err := session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
 					Type: discordgo.InteractionResponseChannelMessageWithSource,

@@ -2,6 +2,7 @@ package commands
 
 import (
 	"cmp"
+	"fmt"
 	"jurrien/dnding-bot/database"
 	"maps"
 	"slices"
@@ -37,6 +38,22 @@ var (
 	DM_ROLE_NAME = "DM"
 	dmPermission = false
 )
+
+func HasMemberDMRole(session *discordgo.Session, member *discordgo.Member, guildID string, logger *log.Logger) (bool, error) {
+	dm_role := false
+	for _, roleID := range member.Roles {
+		role, err := session.State.Role(guildID, roleID)
+		if err != nil {
+			return dm_role, fmt.Errorf("Something went wrong checking the role for the help interaction: %v", err)
+		}
+		if role.Name == DM_ROLE_NAME {
+			dm_role = true
+		}
+		logger.Info("Checking Role", "role", role, "dm_role", dm_role)
+	}
+
+	return dm_role, nil
+}
 
 func cmpCommands(a, b *discordgo.ApplicationCommand) int {
 	return cmp.Compare(a.Name, b.Name)

@@ -57,6 +57,7 @@ func (s *CommandSteps) InitializeScenario(scenario *godog.ScenarioContext) error
 	scenario.Step(`^the user with ID "([^"]*)" is registered with the name "([^"]*)"$`, s.theUserWithIDIsRegisteredWithTheName)
 	scenario.Step(`^there is no player record in the database with "([^"]*)"$`, s.thereIsNoPlayerRecordInTheDatabaseWith)
 	scenario.Step(`^there is a character record in the database for "([^"]*)" with the name "([^"]*)"$`, s.thereIsACharacterRecordInTheDatabaseForWithTheName)
+	scenario.Step(`^the user with ID "([^"]*)" has a character with the name "([^"]*)" and tab amount (\d+) registered$`, s.theUserWithIDHasACharacterWithTheNameAndTabAmountRegistered)
 	return nil
 }
 
@@ -189,7 +190,12 @@ func (s *CommandSteps) theResponseShouldBe(response string) error {
 	if s.MockSession.Response == nil || s.MockSession.Response.Data == nil {
 		return fmt.Errorf("No response given")
 	}
-
+	if s.MockSession.Response.Data.Content != response {
+		if diff := cmp.Diff(response, s.MockSession.Response.Data.Content); diff != "" {
+			return fmt.Errorf("response mismatch (-want +got):\n%s", diff)
+		}
+		return fmt.Errorf("Response is not \n%s but \n%s", response, s.MockSession.Response.Data.Content)
+	}
 	return nil
 }
 
@@ -258,6 +264,26 @@ func (s *CommandSteps) thereIsACharacterRecordInTheDatabaseForWithTheName(player
 
 	if result.RowsAffected == 0 {
 		return fmt.Errorf("Have not found character record with name %s for player %s", character_name, player.Name)
+	}
+
+	return nil
+}
+
+func (s *CommandSteps) theUserWithIDHasACharacterWithTheNameAndTabAmountRegistered(discordId, characterName string, tabAmount int) error {
+	var player models.Player
+	var character models.Character
+
+	player = models.Player{Name: "test_name", DiscordID: discordId}
+	result := s.Database.Connection.Save(&player)
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("Have not found player record for %s", "test_name")
+	}
+
+	character = models.Character{Name: &characterName, Tab: &tabAmount, PlayerID: player.PlayerID}
+	result = s.Database.Connection.Save(&character)
+
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("Could not create character %s with tab %d", *character.Name, *character.Tab)
 	}
 
 	return nil

@@ -21,18 +21,10 @@ var (
 
 	HelpCommandHandlers = map[string]CommandFunction{
 		"help": func(session SessionModel, database *database.DB, logger *log.Logger, interaction *discordgo.InteractionCreate) error {
-			dm_role := false
-			for _, roleID := range interaction.Member.Roles {
-				role, err := session.(*discordgo.Session).State.Role(interaction.GuildID, roleID)
-				if err != nil {
-					return fmt.Errorf("Something went wrong checking the role for the help interaction: %v", err)
-				}
-				if role.Name == DM_ROLE_NAME {
-					dm_role = true
-				}
-				logger.Info("Checking Role", "role", role, "dm_role", dm_role)
+			dm_role, err := HasMemberDMRole(session.(*discordgo.Session), interaction.Member, interaction.GuildID, logger)
+			if err != nil {
+				return err
 			}
-
 			tableString := &strings.Builder{}
 			table := tablewriter.NewWriter(tableString)
 			table.SetBorder(false)
@@ -47,7 +39,7 @@ var (
 				}
 			}
 			table.Render()
-			err := session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
+			err = session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
 					Content: fmt.Sprintf("```%s```", tableString.String()),
