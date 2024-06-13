@@ -114,7 +114,7 @@ var (
 			logger.Info("Registering character for user", "user", discordID, "character", characterName, "player", player)
 			character := &models.Character{
 				Name:     &characterName,
-				PlayerID: player.PlayerID,
+				PlayerID: player.ID,
 			}
 
 			logger.Info("Saving character to database", "character", character)
@@ -309,7 +309,7 @@ var (
 					if strings.HasPrefix(*character.Name, name) || name == "" {
 						filteredCharacters = append(filteredCharacters, &discordgo.ApplicationCommandOptionChoice{
 							Name:  *character.Name,
-							Value: character.CharacterID,
+							Value: character.ID,
 						})
 					}
 				}
@@ -355,7 +355,7 @@ var (
 				}
 				logger.Info("Saving character", "id", characterId, "amount", amount)
 
-				character := &models.Character{CharacterID: uint(characterId)}
+				character := &models.Character{ID: uint(characterId)}
 
 				err := db.GetConnection().Model(&models.Character{}).First(&character).Error
 				if err != nil {
@@ -431,7 +431,7 @@ var (
 					if strings.HasPrefix(*character.Name, name) || name == "" {
 						filteredCharacters = append(filteredCharacters, &discordgo.ApplicationCommandOptionChoice{
 							Name:  *character.Name,
-							Value: character.CharacterID,
+							Value: character.ID,
 						})
 					}
 				}
@@ -496,7 +496,7 @@ var (
 				found_character := models.Character{}
 				characterFound := false
 				for _, character := range *player.Characters {
-					if character.CharacterID == uint(characterId) {
+					if character.ID == uint(characterId) {
 						found_character = character
 						characterFound = true
 					}
@@ -520,7 +520,7 @@ var (
 
 				new_tab := *found_character.Tab - amount
 				found_character.Tab = &new_tab
-				logger.Info("Paying characters tab", "character", found_character.Name, "id", found_character.CharacterID, "amount", amount)
+				logger.Info("Paying characters tab", "character", found_character.Name, "id", found_character.ID, "amount", amount)
 				err = db.GetConnection().Save(found_character).Error
 				if err != nil {
 					_ = session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
@@ -530,8 +530,8 @@ var (
 							Flags:   discordgo.MessageFlagsEphemeral,
 						},
 					})
-					logger.Error("Character not saved", "character", found_character.CharacterID, "amount", amount, "error", err)
-					return fmt.Errorf("No character saved! characterId=%d amount=%d", found_character.CharacterID, amount)
+					logger.Error("Character not saved", "character", found_character.ID, "amount", amount, "error", err)
+					return fmt.Errorf("No character saved! characterId=%d amount=%d", found_character.ID, amount)
 				}
 
 				return session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{

@@ -63,7 +63,7 @@ var (
 				return nil
 			}
 
-			result := database.Connection.Save(&player)
+			result := database.GetConnection().Save(&player)
 			if result.Error != nil {
 				err := session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
 					Type: discordgo.InteractionResponseChannelMessageWithSource,

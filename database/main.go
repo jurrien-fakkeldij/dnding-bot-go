@@ -61,12 +61,8 @@ func SetupDB(ctx context.Context, config *Config) (*DB, error) {
 	}
 
 	db_logger.Info("Connected to database", "database", database.Connection.Migrator().CurrentDatabase())
-	if err = database.Connection.Migrator().AutoMigrate(&models.Player{}, &models.Character{}, &models.Expense{}); err != nil {
+	if err = database.Connection.Migrator().AutoMigrate(&models.Player{}, &models.Character{}, &models.Expense{}, &models.CharacterExpense{}); err != nil {
 		return nil, fmt.Errorf("Failed to run auto migration on the database: %v", err)
-	}
-
-	if err = Migrations(database); err != nil {
-		return nil, fmt.Errorf("Could not do migrations: %v", err)
 	}
 
 	intialiseExpenseTypes(database)

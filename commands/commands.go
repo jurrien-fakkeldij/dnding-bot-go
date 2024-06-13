@@ -22,12 +22,14 @@ var (
 		HelpCommands,
 		PlayerCommands,
 		CharacterCommands,
+		ExpenseCommands,
 	}
 
 	commandHandlers = []map[string]CommandFunction{
 		PlayerCommandHandlers,
 		HelpCommandHandlers,
 		CharacterCommandHandlers,
+		ExpenseCommandHandlers,
 	}
 
 	AllCommands        = mergeCommandList()
