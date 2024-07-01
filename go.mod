@@ -6,19 +6,18 @@ require (
 	github.com/bwmarrin/discordgo v0.28.1
 	github.com/charmbracelet/log v0.4.0
 	github.com/cucumber/godog v0.14.0
-	github.com/google/go-cmp v0.6.0
+	github.com/google/go-cmp v0.5.9
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/spf13/pflag v1.0.5
-	github.com/tursodatabase/go-libsql v0.0.0-20240429120401-651096bbee0b
-	github.com/ytsruh/gorm-libsql v0.1.3
-	gorm.io/gorm v1.25.10
+	github.com/tursodatabase/go-libsql v0.0.0-20240418131656-29cbe90b12a1
+	github.com/ytsruh/gorm-libsql v0.1.2
+	gorm.io/gorm v1.25.9
 )
 
 require (
-	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
+	github.com/antlr4-go/antlr/v4 v4.13.0 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
-	github.com/charmbracelet/lipgloss v0.11.0 // indirect
-	github.com/charmbracelet/x/ansi v0.1.2 // indirect
+	github.com/charmbracelet/lipgloss v0.10.0 // indirect
 	github.com/cucumber/gherkin/go/v26 v26.2.0 // indirect
 	github.com/cucumber/messages/go/v21 v21.0.1 // indirect
 	github.com/go-logfmt/logfmt v0.6.0 // indirect
@@ -34,10 +33,11 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.15 // indirect
 	github.com/mattn/go-sqlite3 v1.14.22 // indirect
+	github.com/muesli/reflow v0.3.0 // indirect
 	github.com/muesli/termenv v0.15.2 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	golang.org/x/crypto v0.24.0 // indirect
-	golang.org/x/exp v0.0.0-20240604190554-fc45aab8b7f8 // indirect
+	golang.org/x/exp v0.0.0-20240325151524-a685a6edb6d8 // indirect
 	golang.org/x/net v0.26.0 // indirect
 	golang.org/x/sys v0.21.0 // indirect
 )

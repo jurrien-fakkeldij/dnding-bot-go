@@ -73,6 +73,8 @@ var (
 				},
 			},
 		},
+
+		//TODO: CREATE CHARACTER
 	}
 
 	CharacterCommandHandlers = map[string]CommandFunction{

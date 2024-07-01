@@ -101,8 +101,18 @@ func SetupDiscordBot(token string) (*discordgo.Session, error) {
 
 func AddingInteractionCreateHandler(session *discordgo.Session, database *database.DB, logger *log.Logger) {
 	session.AddHandler(func(session *discordgo.Session, interaction *discordgo.InteractionCreate) {
-		logger.Info("Executing for command", "command", interaction.ApplicationCommandData().Name)
-		commandName := interaction.ApplicationCommandData().Name
+		commandName := ""
+
+		if interaction.Type == discordgo.InteractionApplicationCommand || interaction.Type == discordgo.InteractionApplicationCommandAutocomplete {
+			commandName = interaction.ApplicationCommandData().Name
+		} else if interaction.Type == discordgo.InteractionMessageComponent {
+			commandName = interaction.MessageComponentData().CustomID
+		} else {
+			logger.Error("Unknown command type found", "commandType", interaction.Type.String(), "interaction", interaction)
+			return
+		}
+
+		logger.Info("Executing for command", "command", commandName)
 		if h, ok := commands.AllCommandHandlers[commandName]; ok {
 			err := h(session, database, logger, interaction)
 			if err != nil {

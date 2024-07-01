@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"context"
 	"fmt"
 	"jurrien/dnding-bot/database"
 	"jurrien/dnding-bot/models"
@@ -9,7 +8,6 @@ import (
 	"math"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/charmbracelet/log"
@@ -18,7 +16,6 @@ import (
 
 const INTEREST_RATE = float64(0.05)
 
-var ctx, cancel = context.WithCancel(context.Background())
 var (
 	newTabCharacters []models.Character
 	wg               sync.WaitGroup
@@ -538,15 +535,40 @@ var (
 				})
 				return fmt.Errorf("Could not find dm role or user doesn't have dm role")
 			}
-			switch interaction.Type {
-			case discordgo.InteractionApplicationCommand:
-				var characters []models.Character
-				newTabCharacters = []models.Character{}
+			var characters []models.Character
+			newTabCharacters = []models.Character{}
 
-				err = db.GetConnection().Find(&characters).Error
+			err = db.GetConnection().Find(&characters).Error
+
+			if err != nil {
+				logger.Error("Database problem getting characters")
+				_ = session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content: "Database error occured. Please contact an administrator.",
+						Flags:   discordgo.MessageFlagsEphemeral,
+					},
+				})
+				return fmt.Errorf("calculate_expenses went wrong - error:%v", err)
+			}
+
+			headerNames := []string{"Name", "Current", "Interest", "Expenses", "New"}
+
+			tableString := &strings.Builder{}
+			table := tablewriter.NewWriter(tableString)
+			table.SetBorder(false)
+			table.SetCenterSeparator("|")
+			table.SetAutoWrapText(false)
+			table.SetHeader(headerNames)
+
+			for _, character := range characters {
+				character_id := character.ID
+
+				var charExpenses []*models.CharacterExpense
+				err = db.GetConnection().Preload("Character").Preload("Expense").Where("character_id = ?", character_id).Find(&charExpenses).Error
 
 				if err != nil {
-					logger.Error("Database problem getting characters")
+					logger.Error("Database problem getting character expenses", "character_id", character_id, "error", err)
 					_ = session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
 						Type: discordgo.InteractionResponseChannelMessageWithSource,
 						Data: &discordgo.InteractionResponseData{
@@ -554,134 +576,92 @@ var (
 							Flags:   discordgo.MessageFlagsEphemeral,
 						},
 					})
-					return fmt.Errorf("calculate_expenses went wrong - error:%v", err)
+					return fmt.Errorf("calculate_expenses went wrong - character: %d, error:%v", character_id, err)
 				}
 
-				headerNames := []string{"Name", "Current", "Interest", "Expenses", "New"}
-
-				tableString := &strings.Builder{}
-				table := tablewriter.NewWriter(tableString)
-				table.SetBorder(false)
-				table.SetCenterSeparator("|")
-				table.SetAutoWrapText(false)
-				table.SetHeader(headerNames)
-
-				for _, character := range characters {
-					character_id := character.ID
-
-					var charExpenses []*models.CharacterExpense
-					err = db.GetConnection().Preload("Character").Preload("Expense").Where("character_id = ?", character_id).Find(&charExpenses).Error
-
-					if err != nil {
-						logger.Error("Database problem getting character expenses", "character_id", character_id, "error", err)
-						_ = session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
-							Type: discordgo.InteractionResponseChannelMessageWithSource,
-							Data: &discordgo.InteractionResponseData{
-								Content: "Database error occured. Please contact an administrator.",
-								Flags:   discordgo.MessageFlagsEphemeral,
-							},
-						})
-						return fmt.Errorf("calculate_expenses went wrong - character: %d, error:%v", character_id, err)
-					}
-
-					totalExpenses := 0
-					for _, charExpense := range charExpenses {
-						totalExpenses += charExpense.Amount
-					}
-
-					interest := math.Floor(math.Max(float64(*character.Tab)*INTEREST_RATE, 0))
-					new_tab := *character.Tab + int(interest) + totalExpenses
-
-					table.Append([]string{*character.Name, utils.ToDNDMoneyFormat(*character.Tab), utils.ToDNDMoneyFormat(int(interest)), utils.ToDNDMoneyFormat(totalExpenses), utils.ToDNDMoneyFormat(new_tab)})
-
-					character.Tab = &new_tab
-
-					newTabCharacters = append(newTabCharacters, character)
-				}
-				table.Render()
-
-				confirmBtn := discordgo.Button{
-					CustomID: "confirm",
-					Label:    "Confirm",
-					Style:    discordgo.SuccessButton,
-					Disabled: false,
+				totalExpenses := 0
+				for _, charExpense := range charExpenses {
+					totalExpenses += charExpense.Amount
 				}
 
-				cancelBtn := discordgo.Button{
-					CustomID: "cancel",
-					Label:    "Cancel",
-					Style:    discordgo.DangerButton,
-					Disabled: false,
-				}
+				interest := math.Floor(math.Max(float64(*character.Tab)*INTEREST_RATE, 0))
+				new_tab := *character.Tab + int(interest) + totalExpenses
 
-				actionRow := discordgo.ActionsRow{
-					Components: []discordgo.MessageComponent{cancelBtn, confirmBtn},
-				}
+				table.Append([]string{*character.Name, utils.ToDNDMoneyFormat(*character.Tab), utils.ToDNDMoneyFormat(int(interest)), utils.ToDNDMoneyFormat(totalExpenses), utils.ToDNDMoneyFormat(new_tab)})
 
-				err = session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
-					Type: discordgo.InteractionResponseChannelMessageWithSource,
+				character.Tab = &new_tab
+
+				newTabCharacters = append(newTabCharacters, character)
+			}
+			table.Render()
+
+			confirmBtn := discordgo.Button{
+				CustomID: "calculate_confirm",
+				Label:    "Yes",
+				Style:    discordgo.SuccessButton,
+				Disabled: false,
+			}
+
+			cancelBtn := discordgo.Button{
+				CustomID: "calculate_cancel",
+				Label:    "No",
+				Style:    discordgo.DangerButton,
+				Disabled: false,
+			}
+
+			actionRow := discordgo.ActionsRow{
+				Components: []discordgo.MessageComponent{cancelBtn, confirmBtn},
+			}
+
+			err = session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content:    fmt.Sprintf("```%s``` Are you sure you want to execute above expenses calculation for this week?", tableString.String()),
+					Flags:      discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsCrossPosted,
+					Components: []discordgo.MessageComponent{actionRow},
+				},
+			})
+			if err != nil {
+				logger.Error("Error sending response for calculate_expenses", "error", err)
+				return fmt.Errorf("Error sending interaction: %v", err)
+			}
+
+			return nil
+		},
+		"calculate_cancel": func(session SessionModel, db *database.DB, logger *log.Logger, interaction *discordgo.InteractionCreate) error {
+			logger.Warn("Canceling new tabs")
+
+			_ = session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseUpdateMessage,
+				Data: &discordgo.InteractionResponseData{
+					Content: "Stopped calculating, moving to the next patron.",
+					Flags:   discordgo.MessageFlagsEphemeral,
+				},
+			})
+			return nil
+		},
+		"calculate_confirm": func(session SessionModel, db *database.DB, logger *log.Logger, interaction *discordgo.InteractionCreate) error {
+			logger.Info("Saving calculations")
+			err := db.GetConnection().Save(newTabCharacters).Error
+			if err != nil {
+				logger.Error("Database problem saving character tabs")
+				_ = session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseUpdateMessage,
 					Data: &discordgo.InteractionResponseData{
-						Content:    fmt.Sprintf("```%s``` Are you sure you want to execute above expenses calculation for this week? Dear DM you havce 5 minutes to approve otherwise I am moving to my next patron.", tableString.String()),
-						Flags:      discordgo.MessageFlagsEphemeral,
-						Components: []discordgo.MessageComponent{actionRow},
+						Content: "Database error occured. Please contact an administrator.",
+						Flags:   discordgo.MessageFlagsEphemeral,
 					},
 				})
-				if err != nil {
-					logger.Error("Error sending response for calculate_expenses", "error", err)
-					return fmt.Errorf("Error sending interaction: %v", err)
-				}
-
-				//Making sure we wait for an 5 minutes before closing the calculation, cleanup and make sure the response is changed
-				wg.Add(1)
-				go func(ctx context.Context) {
-					for {
-						select {
-						case <-ctx.Done():
-							fmt.Println("TimerAfter is cancelled", time.Now())
-							wg.Done()
-							return
-						case <-time.After(time.Second * 10):
-							fmt.Println("time after", time.Now())
-						}
-					}
-				}(ctx)
-				wg.Wait()
-
-			case discordgo.InteractionMessageComponent:
-				confirmation := interaction.MessageComponentData().CustomID
-				if confirmation == "cancel" {
-					logger.Warn("Canceling new tabs")
-					cancel()
-					wg.Done()
-
-					err = session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
-						Type: discordgo.InteractionResponseChannelMessageWithSource,
-						Data: &discordgo.InteractionResponseData{
-							Content: "Database error occured. Please contact an administrator.",
-							Flags:   discordgo.MessageFlagsEphemeral,
-						},
-					})
-
-					if err != nil {
-						logger.Error("Error on cancel response", "error", err)
-						return fmt.Errorf("calculate_expenses error on cancel error: %v", err)
-					}
-				} else if confirmation == "confirm" {
-					logger.Info("Saving calculations")
-					err := db.GetConnection().Save(newTabCharacters).Error
-					if err != nil {
-						logger.Error("Database problem saving character tabs")
-						_ = session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
-							Type: discordgo.InteractionResponseChannelMessageWithSource,
-							Data: &discordgo.InteractionResponseData{
-								Content: "Database error occured. Please contact an administrator.",
-								Flags:   discordgo.MessageFlagsEphemeral,
-							},
-						})
-						return fmt.Errorf("calculate_expenses save tabs went wrong - error:%v", err)
-					}
-				}
+				return fmt.Errorf("calculate_expenses save tabs went wrong - error:%v", err)
 			}
+
+			_ = session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseUpdateMessage,
+				Data: &discordgo.InteractionResponseData{
+					Content: "Updated the ledger thank you for doing business at this establishment.",
+					Flags:   discordgo.MessageFlagsEphemeral,
+				},
+			})
 			return nil
 		},
 	}

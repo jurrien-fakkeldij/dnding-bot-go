@@ -13,6 +13,8 @@ import (
 
 type SessionModel interface {
 	InteractionRespond(interaction *discordgo.Interaction, resp *discordgo.InteractionResponse, options ...discordgo.RequestOption) error
+
+	InteractionResponseEdit(interaction *discordgo.Interaction, params *discordgo.WebhookEdit, options ...discordgo.RequestOption) (*discordgo.Message, error)
 }
 
 type CommandFunction func(SessionModel, *database.DB, *log.Logger, *discordgo.InteractionCreate) error

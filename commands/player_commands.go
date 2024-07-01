@@ -24,6 +24,7 @@ var (
 				},
 			},
 		},
+		///TODO: ADD CREATE PLAYER
 	}
 
 	PlayerCommandHandlers = map[string]CommandFunction{
