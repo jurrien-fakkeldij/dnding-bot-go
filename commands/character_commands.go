@@ -75,6 +75,22 @@ var (
 		},
 
 		//TODO: CREATE CHARACTER
+		{
+			Name:         "create_character",
+			Description:  "[DM] Create a character for a player",
+			DMPermission: &dmPermission,
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "character_name",
+					Description: "Name of the character",
+					Required:    true,
+				},
+				{
+					Type: discordgo.ApplicationCommandOptionInteger,
+				},
+			},
+		},
 	}
 
 	CharacterCommandHandlers = map[string]CommandFunction{
