@@ -26,15 +26,18 @@ var (
 					Required:    true,
 				},
 			},
-		}, {
+		},
+		{
 			Name:         "list_my_characters",
 			Description:  "Lists your characters",
 			DMPermission: &dmPermission,
-		}, {
+		},
+		{
 			Name:         "list_all_characters",
 			Description:  "[DM] Lists all characters",
 			DMPermission: &dmPermission,
-		}, {
+		},
+		{
 			Name:         "set_character_tab",
 			Description:  "[DM] Set the tab for a specific character",
 			DMPermission: &dmPermission,
@@ -53,7 +56,8 @@ var (
 					Required:    true,
 				},
 			},
-		}, {
+		},
+		{
 			Name:         "pay_my_tab",
 			Description:  "Pay the tab of one of your characters",
 			DMPermission: &dmPermission,
@@ -74,7 +78,7 @@ var (
 			},
 		},
 
-		//TODO: CREATE CHARACTER
+		// TODO: CREATE CHARACTER
 		{
 			Name:         "create_character",
 			Description:  "[DM] Create a character for a player",
@@ -105,7 +109,7 @@ var (
 			characterName := ""
 			option, ok := optionMap["character_name"]
 			if ok {
-				characterName = option.StringValue() //mandatory name so should be here
+				characterName = option.StringValue() // mandatory name so should be here
 			}
 
 			logger.Info("%v", interaction.Member.User)
@@ -234,7 +238,6 @@ var (
 			}
 			var players []models.Player
 			err = db.GetConnection().Model(&models.Player{}).Preload("Characters").Find(&players).Error
-
 			if err != nil {
 				logger.Error("Error getting all characters")
 				interactionErr := session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
@@ -275,7 +278,7 @@ var (
 			})
 			if err != nil {
 				logger.Error("Error sending response for list_all_characters", "error", err)
-				return fmt.Errorf("Error sending interaction: %v", err)
+				return fmt.Errorf("error sending interaction: %v", err)
 			}
 
 			return nil
@@ -291,7 +294,7 @@ var (
 						Flags:   discordgo.MessageFlagsEphemeral,
 					},
 				})
-				return fmt.Errorf("Could not find dm role or user doesn't have dm role")
+				return fmt.Errorf("could not find dm role or user doesn't have dm role")
 			}
 
 			switch interaction.Type {

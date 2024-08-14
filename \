@@ -24,6 +24,7 @@ var (
 				},
 			},
 		},
+		///TODO: ADD CREATE PLAYER
 		{
 			Name:         "create_player",
 			Description:  "[DM] Ability to register a player as a DM",
@@ -36,11 +37,11 @@ var (
 					Required:    true,
 				},
 				{
-					Type:         discordgo.ApplicationCommandOptionString,
-					Name:         "discord_user",
-					Description:  "Discord user for which the player is created",
-					Required:     true,
-					Autocomplete: true,
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "player_name",
+					Description: "Name of the player",
+					Required:    true,
+          <aAutocomplete: true,
 				},
 			},
 		},
@@ -124,107 +125,67 @@ var (
 				})
 				return fmt.Errorf("could not find dm role or user doesn't have dm role")
 			}
-			switch interaction.Type {
-			case discordgo.InteractionApplicationCommandAutocomplete:
-				break
-			case discordgo.InteractionApplicationCommand:
-				options := interaction.ApplicationCommandData().Options
-				optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-				for _, opt := range options {
-					optionMap[opt.Name] = opt
-				}
+			options := interaction.ApplicationCommandData().Options
+			optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
+			for _, opt := range options {
+				optionMap[opt.Name] = opt
+			}
 
-				discordID := ""
-				optionUser, okUser := optionMap["dicord_user"]
+			name := ""
+			option, ok := optionMap["player_name"]
+			if ok {
+				name = option.StringValue()
+			} else {
+				name = interaction.Member.Nick
+			}
 
-				if okUser {
-					discordID = optionUser.StringValue()
-				}
+			discordID := interaction.Member.User.ID
 
-				guildMembers, err := session.GuildMembers(interaction.GuildID, "", 1000)
-				if err != nil || len(guildMembers) == 0 {
-					session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
-						Type: discordgo.InteractionResponseChannelMessageWithSource,
-						Data: &discordgo.InteractionResponseData{
-							Content: "Unable to complete creation due to issue with discord member list. Please contact an administrator.",
-							Flags:   discordgo.MessageFlagsEphemeral,
-						},
-					})
-					return fmt.Errorf("could not load all guildmembers with err %v, guildMembers %v", err, guildMembers)
-				}
-
-				var foundMember *discordgo.Member
-				for _, member := range guildMembers {
-					logger.Info("Checking used guildMember against server guildMember", "input", discordID, "user", member.User.ID)
-					if member.User.ID == discordID {
-						foundMember = member
-					}
-				}
-
-				if foundMember == nil {
-					session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
-						Type: discordgo.InteractionResponseChannelMessageWithSource,
-						Data: &discordgo.InteractionResponseData{
-							Content: "Selected user not found, if you have selected one from the autocomplete please contact an administrator.",
-							Flags:   discordgo.MessageFlagsEphemeral,
-						},
-					})
-					return fmt.Errorf("could not find user with discordID %s", discordID)
-				}
-
-				name := ""
-				option, ok := optionMap["player_name"]
-				if ok {
-					name = option.StringValue()
-				} else {
-					name = foundMember.Nick
-				}
-
-				player := models.Player{Name: name, DiscordID: discordID}
-				var old_player []models.Player
-				database.Connection.Where("discord_id = ?", discordID).Find(&old_player)
-				if len(old_player) != 0 {
-					player = old_player[0]
-					logger.Warn("User is already registered.", "name", player.Name, "discordID", discordID, "new_name", name)
-					err := session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
-						Type: discordgo.InteractionResponseChannelMessageWithSource,
-						Data: &discordgo.InteractionResponseData{
-							Content: fmt.Sprintf("%v already registered. If this is not correct please contact the admin", player.Name),
-							Flags:   discordgo.MessageFlagsEphemeral,
-						},
-					})
-					if err != nil {
-						return fmt.Errorf("[create-player] response error: %v", err)
-					}
-					return nil
-				}
-
-				result := database.GetConnection().Save(&player)
-				if result.Error != nil {
-					err := session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
-						Type: discordgo.InteractionResponseChannelMessageWithSource,
-						Data: &discordgo.InteractionResponseData{
-							Content: "Something went wrong, please try again or contact the server admin",
-							Flags:   discordgo.MessageFlagsEphemeral,
-						},
-					})
-					if err != nil {
-						return fmt.Errorf("[create-player] response error: %v -> %v", err, result.Error)
-					}
-
-					return fmt.Errorf("could not save player [%s - %s]: %v", name, discordID, result.Error)
-				}
-				err = session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
+			player := models.Player{Name: name, DiscordID: discordID}
+			var old_player []models.Player
+			database.Connection.Where("discord_id = ?", discordID).Find(&old_player)
+			if len(old_player) != 0 {
+				player = old_player[0]
+				logger.Warn("User is already registered.", "name", player.Name, "discordID", discordID, "new_name", name)
+				err := session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
 					Type: discordgo.InteractionResponseChannelMessageWithSource,
 					Data: &discordgo.InteractionResponseData{
-						Content: fmt.Sprintf("You have registered yourself with the name %s", name),
+						Content: fmt.Sprintf("You already registered %v. If this is not correct please contact the DM or admin", player.Name),
 						Flags:   discordgo.MessageFlagsEphemeral,
 					},
 				})
 				if err != nil {
 					return fmt.Errorf("[create-player] response error: %v", err)
 				}
+				return nil
 			}
+
+			result := database.GetConnection().Save(&player)
+			if result.Error != nil {
+				err := session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content: "Something went wrong, please try again or contact the server admin",
+						Flags:   discordgo.MessageFlagsEphemeral,
+					},
+				})
+				if err != nil {
+					return fmt.Errorf("[create-player] response error: %v -> %v", err, result.Error)
+				}
+
+				return fmt.Errorf("could not save player [%s - %s]: %v", name, discordID, result.Error)
+			}
+			err = session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content: fmt.Sprintf("You have registered yourself with the name %s", name),
+					Flags:   discordgo.MessageFlagsEphemeral,
+				},
+			})
+			if err != nil {
+				return fmt.Errorf("[create-player] response error: %v", err)
+			}
+
 			return nil
 		},
 	}
