@@ -48,7 +48,7 @@ func HasMemberDMRole(session *discordgo.Session, member *discordgo.Member, guild
 	for _, roleID := range member.Roles {
 		role, err := session.State.Role(guildID, roleID)
 		if err != nil {
-			return dm_role, fmt.Errorf("Something went wrong checking the role for the help interaction: %v", err)
+			return dm_role, fmt.Errorf("something went wrong checking the role for the help interaction: %v", err)
 		}
 		if role.Name == DM_ROLE_NAME {
 			dm_role = true

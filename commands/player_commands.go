@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"jurrien/dnding-bot/database"
 	"jurrien/dnding-bot/models"
+	"strings"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/charmbracelet/log"
@@ -126,7 +127,44 @@ var (
 			}
 			switch interaction.Type {
 			case discordgo.InteractionApplicationCommandAutocomplete:
-				break
+				logger.Info("create_player: Autocomplete")
+
+				options := interaction.ApplicationCommandData().Options
+				optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
+				for _, opt := range options {
+					optionMap[opt.Name] = opt
+				}
+				name := ""
+				option, ok := optionMap["discord_user"]
+				if ok {
+					name = option.Value.(string)
+				}
+
+				guildMembers, err := session.GuildMembers(interaction.GuildID, "", 1000)
+				if err != nil || len(guildMembers) == 0 {
+					return fmt.Errorf("could not load all guildmembers with err %v, guildMembers %v", err, guildMembers)
+				}
+				filteredGuildMembers := []*discordgo.ApplicationCommandOptionChoice{}
+				for _, guildMember := range guildMembers {
+					if strings.HasPrefix(guildMember.Nick, name) || name == "" {
+						filteredGuildMembers = append(filteredGuildMembers, &discordgo.ApplicationCommandOptionChoice{
+							Name:  guildMember.Nick,
+							Value: guildMember.User.ID,
+						})
+					}
+				}
+
+				err = session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionApplicationCommandAutocompleteResult,
+					Data: &discordgo.InteractionResponseData{
+						Choices: filteredGuildMembers,
+					},
+				})
+				if err != nil {
+					logger.Error("Error sending response for list_all_characters", "error", err)
+					return fmt.Errorf("error sending interaction: %v", err)
+				}
+
 			case discordgo.InteractionApplicationCommand:
 				options := interaction.ApplicationCommandData().Options
 				optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
