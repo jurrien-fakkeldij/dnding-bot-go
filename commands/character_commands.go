@@ -128,9 +128,9 @@ var (
 				})
 				if err != nil {
 					logger.Error("Error sending response for register_character", "error", err)
-					return fmt.Errorf("Error sending interaction: %v", err)
+					return fmt.Errorf("error sending interaction: %v", err)
 				}
-				return fmt.Errorf("No player found for user: %s", discordID)
+				return fmt.Errorf("no player found for user: %s", discordID)
 			}
 
 			logger.Info("Registering character for user", "user", discordID, "character", characterName, "player", player)
@@ -154,9 +154,9 @@ var (
 				})
 				if err != nil {
 					logger.Error("Error sending response for register_character", "error", err)
-					return fmt.Errorf("Error sending interaction: %v", err)
+					return fmt.Errorf("error sending interaction: %v", err)
 				}
-				return fmt.Errorf("Error saving character: %v", result.Error)
+				return fmt.Errorf("error saving character: %v", result.Error)
 			}
 
 			err := session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
@@ -168,7 +168,7 @@ var (
 			})
 			if err != nil {
 				logger.Error("Error sending response for register_character", "error", err)
-				return fmt.Errorf("Error sending interaction: %v", err)
+				return fmt.Errorf("error sending interaction: %v", err)
 			}
 			return nil
 		},
@@ -190,7 +190,7 @@ var (
 				})
 				if interactionErr != nil {
 					logger.Error("Error sending response for list_my_characters", "error", err)
-					return fmt.Errorf("Error sending interaction: %v", err)
+					return fmt.Errorf("error sending interaction: %v", err)
 				}
 
 				return err
@@ -218,7 +218,7 @@ var (
 			})
 			if err != nil {
 				logger.Error("Error sending response for list_my_characters", "error", err)
-				return fmt.Errorf("Error sending interaction: %v", err)
+				return fmt.Errorf("error sending interaction: %v", err)
 			}
 
 			return nil
@@ -234,7 +234,7 @@ var (
 						Flags:   discordgo.MessageFlagsEphemeral,
 					},
 				})
-				return fmt.Errorf("Could not find dm role or user doesn't have dm role")
+				return fmt.Errorf("could not find dm role or user doesn't have dm role")
 			}
 			var players []models.Player
 			err = db.GetConnection().Model(&models.Player{}).Preload("Characters").Find(&players).Error
@@ -249,7 +249,7 @@ var (
 				})
 				if interactionErr != nil {
 					logger.Error("Error sending response for list_all_characters", "error", err)
-					return fmt.Errorf("Error sending interaction: %v", err)
+					return fmt.Errorf("error sending interaction: %v", err)
 				}
 
 				return err
@@ -343,7 +343,7 @@ var (
 				})
 				if err != nil {
 					logger.Error("Error sending response for list_all_characters", "error", err)
-					return fmt.Errorf("Error sending interaction: %v", err)
+					return fmt.Errorf("error sending interaction: %v", err)
 				}
 
 			case discordgo.InteractionApplicationCommand:
@@ -367,7 +367,7 @@ var (
 							Flags:   discordgo.MessageFlagsEphemeral,
 						},
 					})
-					return fmt.Errorf("No character selected? character=%d", characterId)
+					return fmt.Errorf("no character selected? character=%d", characterId)
 				}
 
 				option, ok = optionMap["amount"]
@@ -388,7 +388,7 @@ var (
 						},
 					})
 					logger.Error("Character not found", "character", characterId, "error", err)
-					return fmt.Errorf("No character saved, character not found! characterId=%d", characterId)
+					return fmt.Errorf("no character saved, character not found! characterId=%d", characterId)
 				}
 				character.Tab = &amount
 				err = db.GetConnection().Save(character).Error
@@ -401,7 +401,7 @@ var (
 						},
 					})
 					logger.Error("Character not saved", "character", characterId, "amount", amount, "error", err)
-					return fmt.Errorf("No character saved! characterId=%d amount=%d", characterId, amount)
+					return fmt.Errorf("no character saved! characterId=%d amount=%d", characterId, amount)
 				}
 
 				return session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
@@ -465,7 +465,7 @@ var (
 				})
 				if err != nil {
 					logger.Error("Error sending response for list_all_characters", "error", err)
-					return fmt.Errorf("Error sending interaction: %v", err)
+					return fmt.Errorf("error sending interaction: %v", err)
 				}
 			case discordgo.InteractionApplicationCommand:
 				logger.Info("pay_my_tab: ApplicationCommand")
@@ -488,7 +488,7 @@ var (
 							Flags:   discordgo.MessageFlagsEphemeral,
 						},
 					})
-					return fmt.Errorf("No character selected? character=%d", characterId)
+					return fmt.Errorf("no character selected? character=%d", characterId)
 				}
 
 				option, ok = optionMap["amount"]
@@ -511,7 +511,7 @@ var (
 						},
 					})
 					logger.Error("Player not found", "player", discordId, "error", err)
-					return fmt.Errorf("Player not found player_id=%s", discordId)
+					return fmt.Errorf("player not found player_id=%s", discordId)
 				}
 
 				found_character := models.Character{}
@@ -532,7 +532,7 @@ var (
 						},
 					})
 					logger.Error("Character does not match with player", "id", characterId, "player", player.Name)
-					return fmt.Errorf("Character does not match with requesting player")
+					return fmt.Errorf("character does not match with requesting player")
 				}
 
 				if amount == 0 {
@@ -552,7 +552,7 @@ var (
 						},
 					})
 					logger.Error("Character not saved", "character", found_character.ID, "amount", amount, "error", err)
-					return fmt.Errorf("No character saved! characterId=%d amount=%d", found_character.ID, amount)
+					return fmt.Errorf("no character saved! characterId=%d amount=%d", found_character.ID, amount)
 				}
 
 				return session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{

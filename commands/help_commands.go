@@ -46,9 +46,8 @@ var (
 					Flags:   discordgo.MessageFlagsEphemeral,
 				},
 			})
-
 			if err != nil {
-				return fmt.Errorf("Error sending response for help command: %v", err)
+				return fmt.Errorf("error sending response for help command: %v", err)
 			}
 
 			return nil

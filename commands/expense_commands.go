@@ -82,7 +82,7 @@ var (
 						Flags:   discordgo.MessageFlagsEphemeral,
 					},
 				})
-				return fmt.Errorf("Could not find dm role or user doesn't have dm role")
+				return fmt.Errorf("could not find dm role or user doesn't have dm role")
 			}
 
 			switch interaction.Type {
@@ -92,7 +92,9 @@ var (
 				options := interaction.ApplicationCommandData().Options
 				for _, option := range options {
 					if option.Focused {
-						if option.Name == "character" {
+						switch option.Name {
+
+						case "character":
 							name := option.Value.(string)
 
 							var characters []models.Character
@@ -105,7 +107,7 @@ var (
 										Flags:   discordgo.MessageFlagsEphemeral,
 									},
 								})
-								return fmt.Errorf("DB Error getting characters command: %s error: %v", "autocomplete: add_expense_to_character", err)
+								return fmt.Errorf("db error getting characters command: %s error: %v", "autocomplete: add_expense_to_character", err)
 							}
 
 							filteredCharacters := []*discordgo.ApplicationCommandOptionChoice{}
@@ -126,9 +128,9 @@ var (
 							})
 							if err != nil {
 								logger.Error("Error sending response for list_all_characters", "error", err)
-								return fmt.Errorf("Error sending interaction: %v", err)
+								return fmt.Errorf("error sending interaction: %v", err)
 							}
-						} else if option.Name == "expense" {
+						case "expense":
 							name := option.Value.(string)
 							var expenses []models.Expense
 							err = db.GetConnection().Find(&expenses).Error
@@ -160,7 +162,7 @@ var (
 							})
 							if err != nil {
 								logger.Error("Error sending response for list_all_characters", "error", err)
-								return fmt.Errorf("Error sending interaction: %v", err)
+								return fmt.Errorf("error sending interaction: %v", err)
 							}
 						}
 					}
@@ -235,7 +237,6 @@ var (
 
 				var charExpenses []*models.CharacterExpense
 				err = db.GetConnection().Where("character_id = ?", character_id).Find(&charExpenses).Error
-
 				if err != nil {
 					logger.Error("Database problem getting character expenses", "character_id", character_id, "error", err)
 					_ = session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
@@ -295,7 +296,7 @@ var (
 						Flags:   discordgo.MessageFlagsEphemeral,
 					},
 				})
-				return fmt.Errorf("Could not find dm role or user doesn't have dm role")
+				return fmt.Errorf("could not find dm role or user doesn't have dm role")
 			}
 
 			switch interaction.Type {
@@ -339,7 +340,7 @@ var (
 							})
 							if err != nil {
 								logger.Error("Error sending response for list_expenses", "error", err)
-								return fmt.Errorf("Error sending interaction: %v", err)
+								return fmt.Errorf("error sending interaction: %v", err)
 							}
 						}
 					}
@@ -373,7 +374,6 @@ var (
 				var charExpenses []*models.CharacterExpense
 				//				err = db.GetConnection().Joins("JOIN characters ON characters.id = character_expenses.character_id").Joins("JOIN expenses ON expenses.id = character_expenses.expense_id").Where("character_id = ?", character_id).Find(&charExpenses).Error
 				err = db.GetConnection().Preload("Character").Preload("Expense").Where("character_id = ?", character_id).Find(&charExpenses).Error
-
 				if err != nil {
 					logger.Error("Database problem getting character expenses", "character_id", character_id, "error", err)
 					_ = session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
@@ -423,7 +423,7 @@ var (
 				})
 				if err != nil {
 					logger.Error("Error sending response for list_my_characters", "error", err)
-					return fmt.Errorf("Error sending interaction: %v", err)
+					return fmt.Errorf("error sending interaction: %v", err)
 				}
 			}
 			return nil
@@ -439,13 +439,12 @@ var (
 						Flags:   discordgo.MessageFlagsEphemeral,
 					},
 				})
-				return fmt.Errorf("Could not find dm role or user doesn't have dm role")
+				return fmt.Errorf("could not find dm role or user doesn't have dm role")
 			}
 
 			var characters []models.Character
 
 			err = db.GetConnection().Find(&characters).Error
-
 			if err != nil {
 				logger.Error("Database problem getting characters")
 				_ = session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
@@ -474,7 +473,6 @@ var (
 
 				var charExpenses []*models.CharacterExpense
 				err = db.GetConnection().Preload("Character").Preload("Expense").Where("character_id = ?", character_id).Find(&charExpenses).Error
-
 				if err != nil {
 					logger.Error("Database problem getting character expenses", "character_id", character_id, "error", err)
 					_ = session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
@@ -518,7 +516,7 @@ var (
 			})
 			if err != nil {
 				logger.Error("Error sending response for list_all_expenses", "error", err)
-				return fmt.Errorf("Error sending interaction: %v", err)
+				return fmt.Errorf("error sending interaction: %v", err)
 			}
 			return nil
 		},
@@ -533,15 +531,14 @@ var (
 						Flags:   discordgo.MessageFlagsEphemeral,
 					},
 				})
-				return fmt.Errorf("Could not find dm role or user doesn't have dm role")
+				return fmt.Errorf("could not find dm role or user doesn't have dm role")
 			}
 			var characters []models.Character
 			newTabCharacters = []models.Character{}
 
 			err = db.GetConnection().Find(&characters).Error
-
 			if err != nil {
-				logger.Error("Database problem getting characters")
+				logger.Error("database problem getting characters")
 				_ = session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
 					Type: discordgo.InteractionResponseChannelMessageWithSource,
 					Data: &discordgo.InteractionResponseData{
@@ -566,7 +563,6 @@ var (
 
 				var charExpenses []*models.CharacterExpense
 				err = db.GetConnection().Preload("Character").Preload("Expense").Where("character_id = ?", character_id).Find(&charExpenses).Error
-
 				if err != nil {
 					logger.Error("Database problem getting character expenses", "character_id", character_id, "error", err)
 					_ = session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
@@ -623,7 +619,7 @@ var (
 			})
 			if err != nil {
 				logger.Error("Error sending response for calculate_expenses", "error", err)
-				return fmt.Errorf("Error sending interaction: %v", err)
+				return fmt.Errorf("error sending interaction: %v", err)
 			}
 
 			return nil

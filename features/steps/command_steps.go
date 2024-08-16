@@ -31,6 +31,16 @@ func (s *MockSession) InteractionRespond(interaction *discordgo.Interaction, res
 	return nil
 }
 
+func (s *MockSession) GuildMembers(guildID string, after string, limit int, options ...discordgo.RequestOption) (st []*discordgo.Member, err error) {
+	///TODO: implement function when used later
+	return nil, nil
+}
+
+func (s *MockSession) InteractionResponseEdit(interaction *discordgo.Interaction, params *discordgo.WebhookEdit, options ...discordgo.RequestOption) (*discordgo.Message, error) {
+	///TODO: implement functon when used later
+	return nil, nil
+}
+
 type CommandSteps struct {
 	Session     *discordgo.Session
 	Interaction *discordgo.Interaction
@@ -141,14 +151,15 @@ func (s *CommandSteps) anyUserSendsACommandWithNameParameter(commandName, name s
 	}
 	s.Interaction.ID = ""
 	s.Interaction.Type = discordgo.InteractionApplicationCommand
-	if commandName == "register_player" {
+	switch commandName {
+	case "register_player":
 		s.Interaction.Data = discordgo.ApplicationCommandInteractionData{
 			Name: "test",
 			Options: []*discordgo.ApplicationCommandInteractionDataOption{
 				{Name: "player_name", Value: name, Type: discordgo.ApplicationCommandOptionString},
 			},
 		}
-	} else if commandName == "register_character" {
+	case "register_character":
 		s.Interaction.Data = discordgo.ApplicationCommandInteractionData{
 			Name: "test",
 			Options: []*discordgo.ApplicationCommandInteractionDataOption{
@@ -171,7 +182,7 @@ func (s *CommandSteps) sendCommand(commandName string) error {
 	}
 
 	if command == nil {
-		return fmt.Errorf("No command: %s found", commandName)
+		return fmt.Errorf("no command: %s found", commandName)
 	}
 
 	fmt.Printf("Command %s interaction %v\n", command.Name, s.Interaction)
@@ -188,34 +199,34 @@ func (s *CommandSteps) sendCommand(commandName string) error {
 
 func (s *CommandSteps) theResponseShouldBe(response string) error {
 	if s.MockSession.Response == nil || s.MockSession.Response.Data == nil {
-		return fmt.Errorf("No response given")
+		return fmt.Errorf("no response given")
 	}
 	if s.MockSession.Response.Data.Content != response {
 		if diff := cmp.Diff(response, s.MockSession.Response.Data.Content); diff != "" {
 			return fmt.Errorf("response mismatch (-want +got):\n%s", diff)
 		}
-		return fmt.Errorf("Response is not \n%s but \n%s", response, s.MockSession.Response.Data.Content)
+		return fmt.Errorf("response is not \n%s but \n%s", response, s.MockSession.Response.Data.Content)
 	}
 	return nil
 }
 
 func (s *CommandSteps) theResponseIs(response *godog.DocString) error {
 	if s.MockSession.Response == nil || s.MockSession.Response.Data == nil {
-		return fmt.Errorf("No response given")
+		return fmt.Errorf("no response given")
 	}
 
 	if s.MockSession.Response.Data.Content != response.Content {
 		if diff := cmp.Diff(response.Content, s.MockSession.Response.Data.Content); diff != "" {
 			return fmt.Errorf("response mismatch (-want +got):\n%s", diff)
 		}
-		return fmt.Errorf("Response is not \n%s but \n%s", response.Content, s.MockSession.Response.Data.Content)
+		return fmt.Errorf("response is not \n%s but \n%s", response.Content, s.MockSession.Response.Data.Content)
 	}
 	return nil
 }
 
 func (s *CommandSteps) theResponseShouldBeEphemeral() error {
 	if s.MockSession.Response.Data.Flags != discordgo.MessageFlagsEphemeral {
-		return fmt.Errorf("Response is not ephemiral")
+		return fmt.Errorf("response is not ephemiral")
 	}
 	return nil
 }
@@ -225,11 +236,11 @@ func (s *CommandSteps) thereIsAPlayerRecordInTheDatabaseWith(player_name string)
 
 	result := s.Database.Connection.Where("name = ?", player_name).First(&player)
 	if result.Error != nil {
-		return fmt.Errorf("Error geting player with name %s: %v", player_name, result.Error)
+		return fmt.Errorf("error geting player with name %s: %v", player_name, result.Error)
 	}
 
 	if player.Name != player_name {
-		return fmt.Errorf("Not sure what happened but found a different name")
+		return fmt.Errorf("not sure what happened but found a different name")
 	}
 
 	return nil
@@ -240,7 +251,7 @@ func (s *CommandSteps) thereIsNoPlayerRecordInTheDatabaseWith(player_name string
 
 	result := s.Database.Connection.Where("name = ?", player_name).First(&player)
 	if result.RowsAffected != 0 {
-		return fmt.Errorf("Found player record for %s: %v", player_name, player)
+		return fmt.Errorf("found player record for %s: %v", player_name, player)
 	}
 	return nil
 }
@@ -257,13 +268,13 @@ func (s *CommandSteps) thereIsACharacterRecordInTheDatabaseForWithTheName(player
 
 	result := s.Database.Connection.Where("name = ?", player_name).First(&player)
 	if result.RowsAffected == 0 {
-		return fmt.Errorf("Have not found player record for %s", player_name)
+		return fmt.Errorf("have not found player record for %s", player_name)
 	}
 
 	result = s.Database.Connection.Where("name = ?", character_name).First(&character)
 
 	if result.RowsAffected == 0 {
-		return fmt.Errorf("Have not found character record with name %s for player %s", character_name, player.Name)
+		return fmt.Errorf("have not found character record with name %s for player %s", character_name, player.Name)
 	}
 
 	return nil
@@ -276,14 +287,14 @@ func (s *CommandSteps) theUserWithIDHasACharacterWithTheNameAndTabAmountRegister
 	player = models.Player{Name: "test_name", DiscordID: discordId}
 	result := s.Database.Connection.Save(&player)
 	if result.RowsAffected == 0 {
-		return fmt.Errorf("Have not found player record for %s", "test_name")
+		return fmt.Errorf("have not found player record for %s", "test_name")
 	}
 
-	character = models.Character{Name: &characterName, Tab: &tabAmount, PlayerID: player.PlayerID}
+	character = models.Character{Name: &characterName, Tab: &tabAmount, PlayerID: player.ID}
 	result = s.Database.Connection.Save(&character)
 
 	if result.RowsAffected == 0 {
-		return fmt.Errorf("Could not create character %s with tab %d", *character.Name, *character.Tab)
+		return fmt.Errorf("could not create character %s with tab %d", *character.Name, *character.Tab)
 	}
 
 	return nil
