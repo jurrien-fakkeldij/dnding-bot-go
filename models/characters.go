@@ -1,10 +1,10 @@
 package models
 
 type Character struct {
-	ID       uint `gorm:"primaryKey;autoIncrement;unique"`
-	PlayerID uint
-	Name     *string
-	Xp       *uint      `gorm:"default:0"`
-	Tab      *int       `gorm:"default:0"`
 	Expenses *[]Expense `gorm:"many2many:character_expenses;"`
+	Name     *string
+	Tab      *int  `gorm:"default:0"`
+	Xp       *uint `gorm:"default:0"`
+	ID       uint  `gorm:"primaryKey;autoIncrement;unique"`
+	PlayerID uint
 }
