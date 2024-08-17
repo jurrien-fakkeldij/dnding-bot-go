@@ -77,8 +77,6 @@ var (
 				},
 			},
 		},
-
-		// TODO: CREATE CHARACTER
 		{
 			Name:         "create_character",
 			Description:  "[DM] Create a character for a player",
@@ -91,13 +89,42 @@ var (
 					Required:    true,
 				},
 				{
-					Type: discordgo.ApplicationCommandOptionInteger,
+					Type:         discordgo.ApplicationCommandOptionInteger,
+					Name:         "player",
+					Description:  "The name of the character you want to set the tab for.",
+					Autocomplete: true,
+					Required:     true,
 				},
 			},
 		},
 	}
 
 	CharacterCommandHandlers = map[string]CommandFunction{
+		"create_character": func(session SessionModel, database *database.DB, logger *log.Logger, interaction *discordgo.InteractionCreate) error {
+			dm_role, err := HasMemberDMRole(session.(*discordgo.Session), interaction.Member, interaction.GuildID, logger)
+			if err != nil || !dm_role {
+				logger.Warn("Error or could not find dm_role", "error", err, "dm_role", dm_role, "user", interaction.Member.Nick)
+				_ = session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content: "You can not run this command, your are not recognized as a DM.",
+						Flags:   discordgo.MessageFlagsEphemeral,
+					},
+				})
+				return fmt.Errorf("could not find dm role or user doesn't have dm role")
+			}
+
+			switch interaction.Type {
+			case discordgo.InteractionApplicationCommandAutocomplete:
+				logger.Info("create_character: Autocomplete")
+				players, err := models.GetAllPlayers(database, logger)
+				if err != nil {
+					return err // TODO: fix return err with better logging
+				}
+			case discordgo.InteractionApplicationCommand:
+			}
+			return nil
+		},
 		"register_character": func(session SessionModel, database *database.DB, logger *log.Logger, interaction *discordgo.InteractionCreate) error {
 			logger.Info("Registering character")
 			options := interaction.ApplicationCommandData().Options
