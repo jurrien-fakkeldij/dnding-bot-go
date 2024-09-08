@@ -119,9 +119,103 @@ var (
 				logger.Info("create_character: Autocomplete")
 				players, err := models.GetAllPlayers(database, logger)
 				if err != nil {
-					return err // TODO: fix return err with better logging
+					_ = session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
+						Type: discordgo.InteractionResponseChannelMessageWithSource,
+						Data: &discordgo.InteractionResponseData{
+							Content: "Something went wrong getting characters. Please contact the administrator.",
+							Flags:   discordgo.MessageFlagsEphemeral,
+						},
+					})
+					return fmt.Errorf("db error getting characters command: %s error: %v", "autocomplete: set_character_tab", err)
+				}
+
+				options := interaction.ApplicationCommandData().Options
+				optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
+				for _, opt := range options {
+					optionMap[opt.Name] = opt
+				}
+				name := ""
+				option, ok := optionMap["player"]
+				if ok {
+					name = option.Value.(string)
+				}
+
+				filteredPlayers := []*discordgo.ApplicationCommandOptionChoice{}
+				for _, player := range players {
+					if strings.HasPrefix(player.Name, name) || name == "" {
+						filteredPlayers = append(filteredPlayers, &discordgo.ApplicationCommandOptionChoice{
+							Name:  player.Name,
+							Value: player.ID,
+						})
+					}
+				}
+
+				err = session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionApplicationCommandAutocompleteResult,
+					Data: &discordgo.InteractionResponseData{
+						Choices: filteredPlayers,
+					},
+				})
+				if err != nil {
+					logger.Error("Error sending response for create character", "error", err)
+					return fmt.Errorf("error sending interaction: %v", err)
 				}
 			case discordgo.InteractionApplicationCommand:
+				options := interaction.ApplicationCommandData().Options
+				optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
+				for _, opt := range options {
+					optionMap[opt.Name] = opt
+				}
+
+				characterName := ""
+				option, ok := optionMap["character_name"]
+				if ok {
+					characterName = option.StringValue() // mandatory name so should be here
+				}
+
+				playerId := uint(0)
+				optionPlayer, okPlayer := optionMap["player"]
+				if okPlayer {
+					playerId = uint(optionPlayer.IntValue())
+				}
+
+				logger.Info("Registering character for user", "user", playerId, "character", characterName)
+				character := &models.Character{
+					Name:     &characterName,
+					PlayerID: playerId,
+				}
+
+				logger.Info("Saving character to database", "character", character)
+
+				result := database.GetConnection().Create(character)
+				if result.Error != nil || result.RowsAffected == 0 {
+					logger.Error("Error saving character to database", "character", character, "error", result.Error)
+
+					err := session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
+						Type: discordgo.InteractionResponseChannelMessageWithSource,
+						Data: &discordgo.InteractionResponseData{
+							Content: "Something went wrong saving your character, please try again or contact an admin.",
+							Flags:   discordgo.MessageFlagsEphemeral,
+						},
+					})
+					if err != nil {
+						logger.Error("Error sending response for register_character", "error", err)
+						return fmt.Errorf("error sending interaction: %v", err)
+					}
+					return fmt.Errorf("error saving character: %v", result.Error)
+				}
+
+				err := session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content: fmt.Sprintf("%s has been added for you.", *character.Name),
+						Flags:   discordgo.MessageFlagsEphemeral,
+					},
+				})
+				if err != nil {
+					logger.Error("Error sending response for register_character", "error", err)
+					return fmt.Errorf("error sending interaction: %v", err)
+				}
 			}
 			return nil
 		},
